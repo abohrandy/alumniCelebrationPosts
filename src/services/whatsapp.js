@@ -26,23 +26,15 @@ class WhatsAppClient {
             pipe: true
         };
 
-        const possiblePaths = [
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable'
-        ];
-
-        for (const p of possiblePaths) {
-            if (fs.existsSync(p)) {
-                puppeteerOptions.executablePath = p;
-                console.log('Using chromium at: ' + p);
-                break;
+        try {
+            const execSync = require('child_process').execSync;
+            const chromiumPath = execSync('which chromium').toString().trim();
+            if (chromiumPath) {
+                puppeteerOptions.executablePath = chromiumPath;
+                console.log('Using chromium at: ' + chromiumPath);
             }
-        }
-
-        if (!puppeteerOptions.executablePath) {
-            console.warn('WARNING: Could not find system chromium. Puppeteer will try to use its bundled version.');
+        } catch (e) {
+            console.warn('WARNING: Could not find system chromium via which. Puppeteer will try to use its bundled version.');
         }
 
         this.client = new Client({
