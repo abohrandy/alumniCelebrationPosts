@@ -1,0 +1,171 @@
+const { initDb, logActivity } = require('../models/database');
+const path = require('path');
+const sharp = require('sharp');
+const fs = require('fs');
+const { emitStats } = require('../services/socket');
+
+const celebrantController = {
+    async create(req, res) {
+        try {
+            const { first_name, second_name, phone_number, event_type, event_date, message_template } = req.body;
+            if (!req.files || !req.files.design_image) {
+                return res.status(400).json({ error: 'No image uploaded.' });
+            }
+
+            const image = req.files.design_image;
+            const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
+            const uploadDir = event_type === 'Birthday' ? path.join(uploadBase, 'birthdays') : path.join(uploadBase, 'anniversaries');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const fileName = `${Date.now()}-${image.name}`;
+            const uploadPath = path.join(uploadDir, fileName);
+
+            // Path to save to DB (relative to /uploads route)
+            const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
+
+            // Aspect Ratio Validation & Compression
+            const metadata = await sharp(image.data).metadata();
+            const ratio = metadata.width / metadata.height;
+            const targetRatio = 1080 / 1350; // 0.8
+
+            // Check if roughly 4:5
+            if (Math.abs(ratio - targetRatio) > 0.1) {
+                // We'll still save it but return a warning if the UI didn't catch it
+                console.warn('Image ratio is not 4:5 optimized for WhatsApp.');
+            }
+
+            // Note: We removed forceful resizing so the image is not cropped.
+            // We just compress it to 90% quality.
+            await sharp(image.data)
+                .jpeg({ quality: 90 })
+                .toFile(uploadPath);
+
+            const db = await initDb();
+            const result = await db.run(
+                `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date, design_image_path, message_template)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [first_name, second_name, phone_number, event_type, event_date, dbPath, message_template]
+            );
+
+            emitStats({ action: 'create' });
+            await logActivity('celebrant_added', `Added ${event_type} for ${first_name} ${second_name}`);
+            res.status(201).json({ message: 'Celebrant created successfully', id: result.lastID });
+        } catch (error) {
+            console.error('Error creating celebrant:', error);
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    },
+
+    async update(req, res) {
+        try {
+            const { id } = req.params;
+            const { first_name, second_name, phone_number, event_type, event_date, message_template } = req.body;
+            const db = await initDb();
+
+            let updateQuery = `
+                UPDATE events 
+                SET first_name = ?, second_name = ?, phone_number = ?, event_type = ?, event_date = ?, message_template = ?
+            `;
+            let queryParams = [first_name, second_name, phone_number, event_type, event_date, message_template || null];
+
+            if (req.files && req.files.design_image) {
+                const image = req.files.design_image;
+                const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
+                const uploadDir = event_type === 'Birthday' ? path.join(uploadBase, 'birthdays') : path.join(uploadBase, 'anniversaries');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+                const fileName = `${Date.now()}-${image.name}`;
+                const uploadPath = path.join(uploadDir, fileName);
+
+                // Path to save to DB
+                const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
+
+                // Image processing
+                await sharp(image.data)
+                    .jpeg({ quality: 90 })
+                    .toFile(uploadPath);
+
+                updateQuery += `, design_image_path = ?`;
+                queryParams.push(dbPath);
+            }
+
+            updateQuery += ` WHERE id = ?`;
+            queryParams.push(id);
+
+            await db.run(updateQuery, queryParams);
+            emitStats({ action: 'update' });
+            await logActivity('celebrant_updated', `Updated celebrant ID ${id}`);
+            res.json({ message: 'Celebrant updated successfully.' });
+        } catch (error) {
+            console.error('Error updating celebrant:', error);
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    },
+
+    async list(req, res) {
+        try {
+            const db = await initDb();
+            const events = await db.all("SELECT * FROM events ORDER BY event_date ASC");
+            res.json(events);
+        } catch (error) {
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    },
+
+    async delete(req, res) {
+        try {
+            const { id } = req.params;
+            const db = await initDb();
+
+            // Get path to delete file
+            const event = await db.get("SELECT design_image_path FROM events WHERE id = ?", [id]);
+            if (event && fs.existsSync(event.design_image_path)) {
+                fs.unlinkSync(event.design_image_path);
+            }
+
+            await db.run("DELETE FROM events WHERE id = ?", [id]);
+            emitStats({ action: 'delete' });
+            await logActivity('celebrant_deleted', `Deleted celebrant ID ${id}`);
+            res.json({ message: 'Celebrant deleted.' });
+        } catch (error) {
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    },
+
+    async toggleStatus(req, res) {
+        try {
+            const { id } = req.params;
+            const db = await initDb();
+            const event = await db.get("SELECT status FROM events WHERE id = ?", [id]);
+            const newStatus = event.status === 'active' ? 'inactive' : 'active';
+
+            await db.run("UPDATE events SET status = ? WHERE id = ?", [newStatus, id]);
+            res.json({ id, status: newStatus });
+        } catch (error) {
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    },
+
+    async postNow(req, res) {
+        try {
+            const { id } = req.params;
+            const db = await initDb();
+            const event = await db.get("SELECT * FROM events WHERE id = ?", [id]);
+
+            if (!event) {
+                return res.status(404).json({ error: 'Celebrant not found.' });
+            }
+
+            const { sendPost } = require('../services/scheduler');
+            // Note: sendPost captures its own errors and logs them, we just trigger it and return immediately.
+            setImmediate(() => sendPost(event));
+
+            res.json({ message: 'Post request initiated. Check recent logs for status.' });
+        } catch (error) {
+            console.error('Error in postNow:', error);
+            res.status(500).json({ error: 'Internal server error.' });
+        }
+    }
+};
+
+module.exports = celebrantController;

@@ -1,0 +1,266 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Trash2, Edit2, Calendar, Gift, Camera, X, Send } from 'lucide-react';
+import axios from 'axios';
+
+const Celebrants = () => {
+    const [celebrants, setCelebrants] = useState([]);
+    const [showModal, setShowModal] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [formData, setFormData] = useState({
+        first_name: '',
+        second_name: '',
+        phone_number: '',
+        event_type: 'Birthday',
+        event_date: '',
+        message_template: '',
+        design_image: null
+    });
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [ratioWarning, setRatioWarning] = useState(false);
+
+    useEffect(() => {
+        fetchCelebrants();
+    }, []);
+
+    const fetchCelebrants = async () => {
+        try {
+            const res = await axios.get('http://localhost:3000/api/celebrants');
+            setCelebrants(res.data);
+        } catch (error) {
+            console.error('Failed to fetch:', error);
+        }
+    };
+
+    const handleImageChange = (e: any) => {
+        const file = e.target.files[0];
+        if (file) {
+            setFormData({ ...formData, design_image: file });
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+
+            const img = new Image();
+            img.src = url;
+            setRatioWarning(false); // keep state to avoid breaking hooks, just always false
+        }
+    };
+
+    const handleEdit = (c: any) => {
+        setFormData({
+            first_name: c.first_name,
+            second_name: c.second_name,
+            phone_number: c.phone_number || '',
+            event_type: c.event_type,
+            event_date: c.event_date,
+            message_template: c.message_template || '',
+            design_image: null
+        });
+        setPreviewUrl(c.design_image_path ? `http://localhost:3000/${c.design_image_path}` : null);
+        setEditingId(c.id);
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e: any) => {
+        e.preventDefault();
+        const data = new FormData();
+        Object.keys(formData).forEach((k) => {
+            const key = k as keyof typeof formData;
+            if (formData[key] !== null) {
+                data.append(key, formData[key] as string | Blob);
+            }
+        });
+
+        try {
+            if (editingId) {
+                await axios.put(`http://localhost:3000/api/celebrants/${editingId}`, data);
+            } else {
+                await axios.post('http://localhost:3000/api/celebrants', data);
+            }
+            setShowModal(false);
+            fetchCelebrants();
+            resetForm();
+        } catch (error) {
+            alert('Failed to save celebrant');
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            first_name: '',
+            second_name: '',
+            phone_number: '',
+            event_type: 'Birthday',
+            event_date: '',
+            message_template: '',
+            design_image: null
+        });
+        setEditingId(null);
+        setPreviewUrl(null);
+        setRatioWarning(false);
+    };
+
+    const handlePostNow = async (id: number) => {
+        if (window.confirm('Are you sure you want to send this post to WhatsApp right now?')) {
+            try {
+                await axios.post(`http://localhost:3000/api/celebrants/${id}/post-now`);
+                alert('Post attempt initiated. Check the WhatsApp Logs module to see the status.');
+            } catch (error) {
+                alert('Failed to initiate post now.');
+            }
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (window.confirm('Are you sure you want to delete this celebrant?')) {
+            try {
+                await axios.delete(`http://localhost:3000/api/celebrants/${id}`);
+                fetchCelebrants();
+            } catch (error) {
+                alert('Failed to delete celebrant.');
+            }
+        }
+    };
+
+    const filtered = celebrants.filter((c: any) =>
+        `${c.first_name} ${c.second_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="relative w-full md:w-96">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search alumni..."
+                        className="w-full pl-10 pr-4 py-2 glass-card bg-slate-900/30 border-slate-700/50 focus:border-primary outline-none transition-all"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg shadow-lg shadow-primary/20 transition-all"
+                >
+                    <Plus size={20} />
+                    Add New Celebrant
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filtered.map((c) => (
+                    <div key={c.id} className="glass-card p-5 group relative">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 overflow-hidden">
+                                {c.design_image_path && (
+                                    <img
+                                        src={`http://localhost:3000/${c.design_image_path}`}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                    />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white text-lg">{c.first_name} {c.second_name}</h4>
+                                <div className="flex items-center gap-2 text-primary font-medium text-xs mt-1">
+                                    {c.event_type === 'Birthday' ? <Gift size={14} /> : <Calendar size={14} />}
+                                    {c.event_type}
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">{c.event_date}</p>
+                            </div>
+                            <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handlePostNow(c.id)} title="Post Now" className="p-2 text-green-400 hover:text-white hover:bg-green-500/20 rounded-lg">
+                                    <Send size={16} />
+                                </button>
+                                <button onClick={() => handleEdit(c)} title="Edit Details" className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                                    <Edit2 size={16} />
+                                </button>
+                                <button onClick={() => handleDelete(c.id)} title="Delete Celebrant" className="p-2 text-red-500/70 hover:text-red-500 hover:bg-red-500/10 rounded-lg">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Add Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="glass-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-slate-700/50 flex justify-between items-center sticky top-0 bg-slate-900/80 backdrop-blur-md z-10">
+                            <h3 className="text-xl font-bold text-white">{editingId ? 'Edit Celebrant' : 'Add New Celebrant'}</h3>
+                            <button onClick={() => { setShowModal(false); resetForm(); }} className="text-slate-500 hover:text-white">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">First Name</label>
+                                    <input required type="text" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
+                                        value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">Second Name</label>
+                                    <input required type="text" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
+                                        value={formData.second_name} onChange={e => setFormData({ ...formData, second_name: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">Event Type</label>
+                                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
+                                        value={formData.event_type} onChange={e => setFormData({ ...formData, event_type: e.target.value })}>
+                                        <option value="Birthday">Birthday</option>
+                                        <option value="Wedding Anniversary">Wedding Anniversary</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">Event Date</label>
+                                    <input required type="date" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
+                                        value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-400">Custom Caption (Optional - Overrides default template)</label>
+                                <textarea className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none resize-y min-h-[80px]"
+                                    placeholder="Enter a personalized message for this celebrant. Use {name} if you want their name inserted dynamically."
+                                    value={formData.message_template} onChange={e => setFormData({ ...formData, message_template: e.target.value })} />
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="text-sm font-medium text-slate-400">Design Image (Any Size)</label>
+                                <div className={`border-2 border-dashed ${ratioWarning ? 'border-yellow-500' : 'border-slate-700'} rounded-xl p-8 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer relative`}>
+                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageChange} accept="image/*" />
+                                    {previewUrl ? (
+                                        <div className="flex flex-col items-center">
+                                            <div className="max-w-[200px] bg-slate-900 border-2 border-primary rounded-md overflow-hidden shadow-2xl relative">
+                                                <img src={previewUrl} className="w-full h-auto object-contain" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Camera size={40} className="text-slate-600 mb-2" />
+                                            <p className="text-sm text-slate-400">Click or drag to upload design</p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-slate-700/50 flex justify-end gap-3">
+                                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="px-6 py-2 rounded-lg font-bold text-slate-400 hover:text-white transition-colors">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="px-6 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg shadow-lg shadow-primary/20 transition-all">
+                                    {editingId ? 'Save Changes' : 'Save Celebrant'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Celebrants;
