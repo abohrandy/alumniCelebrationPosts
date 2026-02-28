@@ -18,14 +18,31 @@ class WhatsAppClient {
                 '--disable-setuid-sandbox',
                 '--remote-allow-origins=*',
                 '--disable-gpu',
-                '--disable-dev-shm-usage'
+                '--disable-dev-shm-usage',
+                '--single-process',
+                '--no-zygote'
             ],
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             pipe: true
         };
 
-        if (fs.existsSync('/usr/bin/chromium')) {
-            puppeteerOptions.executablePath = '/usr/bin/chromium';
+        const possiblePaths = [
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable'
+        ];
+
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                puppeteerOptions.executablePath = p;
+                console.log('Using chromium at: ' + p);
+                break;
+            }
+        }
+
+        if (!puppeteerOptions.executablePath) {
+            console.warn('WARNING: Could not find system chromium. Puppeteer will try to use its bundled version.');
         }
 
         this.client = new Client({
