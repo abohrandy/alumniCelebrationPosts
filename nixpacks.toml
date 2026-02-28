@@ -1,2 +1,4 @@
+providers = ["node"]
+
 [phases.setup]
-nixPkgs = ["...", "nss", "alsa-lib", "atk", "at-spi2-atk", "cups", "libdrm", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "expat", "libxcb", "libxkbcommon", "pango", "cairo"]
+aptPkgs = ["...", "chromium", "chromium-driver", "libglib2.0-0", "libnss3", "libatk1.0-0", "libatk-bridge2.0-0", "libcups2", "libdrm2", "libxkbcommon0", "libxcomposite1", "libxdamage1", "libxfixes3", "libxrandr2", "libgbm1", "libasound2", "libxshmfence1"]

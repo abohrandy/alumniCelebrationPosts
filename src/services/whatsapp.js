@@ -11,22 +11,28 @@ class WhatsAppClient {
         const uniquePath = path.join(baseDir, 'wa_session_' + Date.now());
         const authPath = path.join(baseDir, 'wa_auth_persistent');
 
+        const puppeteerOptions = {
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--remote-allow-origins=*',
+                '--disable-gpu',
+                '--disable-dev-shm-usage'
+            ],
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            pipe: true
+        };
+
+        if (fs.existsSync('/usr/bin/chromium')) {
+            puppeteerOptions.executablePath = '/usr/bin/chromium';
+        }
+
         this.client = new Client({
             authStrategy: new LocalAuth({
                 dataPath: authPath
             }),
-            puppeteer: {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--remote-allow-origins=*',
-                    '--disable-gpu',
-                    '--disable-dev-shm-usage'
-                ],
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                pipe: true
-            }
+            puppeteer: puppeteerOptions
         });
 
         this.status = 'DISCONNECTED';
