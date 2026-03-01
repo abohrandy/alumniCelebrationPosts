@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
 import Dashboard from './components/Dashboard';
 import Events from './components/Events';
@@ -21,10 +21,26 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
+  });
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const checkAuth = async () => {
     try {
@@ -50,8 +66,8 @@ function App() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <div style={{ color: 'var(--text-secondary)' }}>Loading...</div>
       </div>
     );
   }
@@ -87,16 +103,26 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       {/* Sidebar */}
       <aside className="w-64 glass-sidebar flex flex-col fixed h-full z-10">
-        <div className="p-6 border-b border-slate-700/50">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
-            MUAAFCT Poster
-          </h1>
-          <span className="text-[10px] uppercase tracking-widest text-slate-500 font-medium">
-            {isAdmin ? 'Admin' : 'Media'} Panel
-          </span>
+        <div className="p-5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo-dark.png"
+              alt="MUAAFCT Logo"
+              className="w-10 h-10 rounded-lg object-contain"
+              style={{ backgroundColor: theme === 'light' ? 'transparent' : 'rgba(255,255,255,0.1)', padding: '2px' }}
+            />
+            <div>
+              <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+                MUAAFCT Poster
+              </h1>
+              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--text-muted)' }}>
+                {isAdmin ? 'Admin' : 'Media'} Panel
+              </span>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -161,23 +187,46 @@ function App() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-slate-700/50 space-y-2">
+        <div className="p-4 space-y-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+          {/* Theme Toggle */}
+          <div className="flex items-center justify-between px-2">
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {theme === 'dark' ? 'Dark' : 'Light'} Mode
+            </span>
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300"
+              style={{
+                backgroundColor: theme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                color: theme === 'dark' ? '#818cf8' : '#f59e0b',
+                border: `1px solid ${theme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+              }}
+            >
+              {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </button>
+          </div>
+
+          {/* User info */}
           <div className="flex items-center gap-3 p-2 rounded-lg">
             {user.avatar_url ? (
               <img src={user.avatar_url} alt={user.name} className="w-8 h-8 rounded-full" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-white">
                 {user.name.charAt(0)}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user.name}</p>
-              <p className="text-xs text-slate-500 capitalize">{user.role}</p>
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{user.name}</p>
+              <p className="text-xs capitalize" style={{ color: 'var(--text-muted)' }}>{user.role}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-red-500/10 rounded-lg transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
             <LogOut size={16} />
             Sign Out
@@ -188,9 +237,9 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 ml-64 p-8">
         <header className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-white">{tabLabel(activeTab)}</h2>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{tabLabel(activeTab)}</h2>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-slate-400 hover:text-white glass-card">
+            <button className="p-2 glass-card" style={{ color: 'var(--text-secondary)' }}>
               <Bell size={20} />
             </button>
           </div>
