@@ -156,8 +156,10 @@ function Events() {
             setShowForm(false);
             resetForm();
             fetchEvents();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save event:', error);
+            const msg = error.response?.data?.error || error.message || 'Unknown error';
+            alert('Failed to save event: ' + msg);
         } finally {
             setSubmitting(false);
         }

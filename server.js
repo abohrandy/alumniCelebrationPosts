@@ -73,7 +73,7 @@ app.get('/health', (req, res) => {
 });
 
 // SPA fallback — serve index.html for all non-API routes
-app.get('{*path}', (req, res) => {
+app.get('*', (req, res) => {
     const indexPath = path.join(frontendPath, 'index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
