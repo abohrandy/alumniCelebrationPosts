@@ -58,6 +58,10 @@ class WhatsAppClient {
         process.env.TEMP = tempPath;
         process.env.TMP = tempPath;
 
+        // Clean stale Chromium lock files from previous crashed instances
+        const authPath = path.join(baseDir, 'wa_auth_persistent');
+        this._cleanLockFiles(authPath);
+
         console.log('WhatsApp Client initializing with TEMP:', process.env.TEMP);
 
         this.client.on('qr', (qr) => {
@@ -99,6 +103,24 @@ class WhatsAppClient {
         });
 
         return this.client.initialize();
+    }
+
+    _cleanLockFiles(dir) {
+        try {
+            if (!fs.existsSync(dir)) return;
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    this._cleanLockFiles(fullPath);
+                } else if (entry.name === 'SingletonLock' || entry.name === 'SingletonCookie' || entry.name === 'SingletonSocket') {
+                    fs.unlinkSync(fullPath);
+                    console.log('Removed stale lock file:', fullPath);
+                }
+            }
+        } catch (err) {
+            console.error('Error cleaning lock files:', err.message);
+        }
     }
 
     getStatus() {
