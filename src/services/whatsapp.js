@@ -13,6 +13,7 @@ class WhatsAppClient {
 
         const puppeteerOptions = {
             headless: true,
+            executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -129,6 +130,7 @@ class WhatsAppClient {
                 }),
                 puppeteer: {
                     headless: true,
+                    executablePath: '/usr/bin/chromium',
                     args: [
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
