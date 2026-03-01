@@ -65,6 +65,43 @@ async function initDb() {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // ── Migrate data from old 'celebrants' table if it exists ──
+        const celebrantsTable = await db.all("PRAGMA table_info(celebrants)");
+        if (celebrantsTable.length > 0) {
+            console.log('Migrating data from celebrants table to events...');
+            const celebrantCols = celebrantsTable.map(c => c.name);
+            try {
+                const celebrants = await db.all('SELECT * FROM celebrants');
+                for (const c of celebrants) {
+                    // Map old event_type values
+                    let eventType = 'birthday';
+                    if (c.event_type === 'Wedding Anniversary' || c.event_type === 'wedding_anniversary') {
+                        eventType = 'wedding_anniversary';
+                    }
+
+                    await db.run(
+                        `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date,
+                         design_image_path, message_template, schedule_type, status, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
+                        [
+                            c.first_name || null,
+                            c.second_name || null,
+                            c.phone_number || null,
+                            eventType,
+                            c.event_date || null,
+                            c.design_image_path || null,
+                            c.message_template || null,
+                            c.status || 'active',
+                            c.created_at || new Date().toISOString()
+                        ]
+                    );
+                }
+                console.log(`Migrated ${celebrants.length} records from celebrants to events.`);
+            } catch (migErr) {
+                console.error('Error migrating celebrants:', migErr);
+            }
+        }
     } else {
         // Migration: add new columns if missing
         if (!columnNames.includes('title')) {
@@ -89,6 +126,43 @@ async function initDb() {
         // Migrate old event_type values to new lowercase format
         await db.exec("UPDATE events SET event_type = 'birthday' WHERE event_type = 'Birthday'");
         await db.exec("UPDATE events SET event_type = 'wedding_anniversary' WHERE event_type = 'Wedding Anniversary'");
+    }
+
+    // ── Always check: recover from celebrants if events is empty ──
+    const eventsCount = await db.get('SELECT COUNT(*) as count FROM events');
+    if (eventsCount.count === 0) {
+        const celebrantsExists = await db.all("PRAGMA table_info(celebrants)");
+        if (celebrantsExists.length > 0) {
+            console.log('Events table empty — recovering data from celebrants table...');
+            try {
+                const celebrants = await db.all('SELECT * FROM celebrants');
+                for (const c of celebrants) {
+                    let eventType = 'birthday';
+                    if (c.event_type === 'Wedding Anniversary' || c.event_type === 'wedding_anniversary') {
+                        eventType = 'wedding_anniversary';
+                    }
+                    await db.run(
+                        `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date,
+                         design_image_path, message_template, schedule_type, status, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
+                        [
+                            c.first_name || null,
+                            c.second_name || null,
+                            c.phone_number || null,
+                            eventType,
+                            c.event_date || null,
+                            c.design_image_path || null,
+                            c.message_template || null,
+                            c.status || 'active',
+                            c.created_at || new Date().toISOString()
+                        ]
+                    );
+                }
+                console.log(`Recovered ${celebrants.length} records from celebrants into events.`);
+            } catch (migErr) {
+                console.error('Error recovering celebrants data:', migErr);
+            }
+        }
     }
 
     // ── Settings table ──
