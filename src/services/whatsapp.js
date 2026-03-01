@@ -16,15 +16,17 @@ class WhatsAppClient {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--remote-allow-origins=*',
-                '--disable-gpu',
                 '--disable-dev-shm-usage',
-                '--no-zygote',
-                '--single-process'
-            ],
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            pipe: true
+                '--disable-gpu',
+                '--remote-allow-origins=*'
+            ]
         };
+
+        // Use system Chromium if available (Docker/Railway)
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            console.log('Using chromium at:', process.env.PUPPETEER_EXECUTABLE_PATH);
+        }
 
         this.client = new Client({
             authStrategy: new LocalAuth({
@@ -123,24 +125,25 @@ class WhatsAppClient {
             const baseDir = process.env.DATA_DIR || 'C:\\';
             const authPath = path.join(baseDir, 'wa_auth_persistent');
 
+            const reconnectPuppeteerOptions = {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--remote-allow-origins=*'
+                ]
+            };
+            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+                reconnectPuppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            }
+
             this.client = new Client({
                 authStrategy: new LocalAuth({
                     dataPath: authPath
                 }),
-                puppeteer: {
-                    headless: true,
-                    args: [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--remote-allow-origins=*',
-                        '--disable-gpu',
-                        '--disable-dev-shm-usage',
-                        '--no-zygote',
-                        '--single-process'
-                    ],
-                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    pipe: true
-                },
+                puppeteer: reconnectPuppeteerOptions,
                 webVersionCache: {
                     type: 'remote',
                     remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
