@@ -87,13 +87,13 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard />;
-      case 'events': return <Events />;
-      case 'activity': return isAdmin ? <ActivityLogs /> : <Dashboard />;
-      case 'whatsapp': return <WhatsAppStatus />;
-      case 'settings': return isAdmin ? <Settings /> : <Dashboard />;
-      case 'users': return isAdmin ? <UserManagement /> : <Dashboard />;
-      default: return <Dashboard />;
+      case 'dashboard': return <Dashboard key="dashboard" />;
+      case 'events': return <Events key="events" />;
+      case 'activity': return isAdmin ? <ActivityLogs key="activity" /> : <Dashboard key="dashboard-fallback" />;
+      case 'whatsapp': return <WhatsAppStatus key="whatsapp" />;
+      case 'settings': return isAdmin ? <Settings key="settings" /> : <Dashboard key="dashboard-fallback2" />;
+      case 'users': return isAdmin ? <UserManagement key="users" /> : <Dashboard key="dashboard-fallback3" />;
+      default: return <Dashboard key="dashboard-default" />;
     }
   };
 
