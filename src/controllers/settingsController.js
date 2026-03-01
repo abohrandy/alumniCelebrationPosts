@@ -25,7 +25,7 @@ exports.updateSettings = async (req, res) => {
         `;
 
         await db.run(query, [whatsapp_group_id, birthday_template, anniversary_template]);
-        await logActivity('settings_updated', 'Application settings were modified by admin.');
+        await logActivity(req.user ? req.user.id : null, 'settings_updated', null, 'Application settings were modified.');
         res.json({ message: 'Settings updated successfully' });
     } catch (err) {
         console.error('Error updating settings:', err);

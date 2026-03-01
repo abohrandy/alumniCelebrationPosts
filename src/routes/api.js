@@ -5,6 +5,7 @@ const eventController = require('../controllers/eventController');
 const settingsController = require('../controllers/settingsController');
 const waClient = require('../services/whatsapp');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
+const { logActivity } = require('../models/database');
 
 // ── Auth Routes ──
 router.get('/auth/google',
@@ -13,7 +14,10 @@ router.get('/auth/google',
 
 router.get('/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/?error=auth_failed' }),
-    (req, res) => {
+    async (req, res) => {
+        if (req.user) {
+            await logActivity(req.user.id, 'user_login', null, `${req.user.name} (${req.user.email}) signed in`);
+        }
         res.redirect('/');
     }
 );
@@ -76,7 +80,9 @@ router.patch('/users/:id/role', requireAdmin, async (req, res) => {
         }
         const { initDb } = require('../models/database');
         const db = await initDb();
+        const targetUser = await db.get('SELECT name, email FROM users WHERE id = ?', [req.params.id]);
         await db.run('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+        await logActivity(req.user.id, 'role_changed', null, `Changed ${targetUser ? targetUser.name : 'user ' + req.params.id} role to ${role}`);
         res.json({ message: 'Role updated', id: req.params.id, role });
     } catch (error) {
         console.error('Error updating role:', error);
