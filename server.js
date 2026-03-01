@@ -29,6 +29,9 @@ app.use(fileUpload({
 const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadBase));
 
+// Serve the admin dashboard frontend
+app.use(express.static(path.join(__dirname, 'admin-dashboard')));
+
 // Routes
 app.use('/api', apiRoutes);
 
