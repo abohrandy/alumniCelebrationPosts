@@ -29,8 +29,12 @@ app.use(fileUpload({
 const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadBase));
 
-// Serve the admin dashboard frontend
-app.use(express.static(path.join(__dirname, 'admin-dashboard')));
+// Serve the admin dashboard frontend (built Vite output)
+const dashboardPath = path.join(__dirname, 'admin-dashboard-dist');
+const dashboardSrcPath = path.join(__dirname, 'admin-dashboard');
+// Use built dist if available, otherwise fall back to source folder
+const frontendPath = require('fs').existsSync(dashboardPath) ? dashboardPath : dashboardSrcPath;
+app.use(express.static(frontendPath));
 
 // Routes
 app.use('/api', apiRoutes);

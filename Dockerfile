@@ -39,12 +39,25 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# --- Build the admin dashboard frontend ---
+COPY admin-dashboard/package*.json ./admin-dashboard/
+RUN cd admin-dashboard && npm install
+COPY admin-dashboard/ ./admin-dashboard/
+RUN cd admin-dashboard && npm run build
+
+# --- Install backend dependencies ---
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# Copy application code
-COPY . .
+# Copy backend application code
+COPY server.js ./
+COPY src/ ./src/
+COPY config/ ./config/
+COPY scripts/ ./scripts/
+COPY .env* ./
+
+# Move the built frontend to a dist folder the server can serve
+RUN mv admin-dashboard/dist ./admin-dashboard-dist
 
 # Expose the port
 EXPOSE 3000
