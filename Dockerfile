@@ -43,7 +43,7 @@ WORKDIR /app
 COPY admin-dashboard/package*.json ./admin-dashboard/
 RUN cd admin-dashboard && npm install
 COPY admin-dashboard/ ./admin-dashboard/
-RUN cd admin-dashboard && npm run build
+RUN cd admin-dashboard && npx vite build
 RUN mv admin-dashboard/dist ./admin-dashboard-dist && rm -rf admin-dashboard
 
 # --- Install backend dependencies ---
