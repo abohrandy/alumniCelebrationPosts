@@ -7,53 +7,69 @@ const { emitLog } = require('./socket');
 const { logActivity } = require('../models/database');
 
 async function scheduleDailyPosts() {
+    // ── Birthday & Wedding Anniversary ──
     // Run every day at 1:00 AM to prepare the queue for 6:00 AM
     cron.schedule('0 1 * * *', async () => {
         console.log('Running daily post scheduler check...');
         await processTodayEvents();
     });
 
+    // ── Monday Market ──
+    // Every Monday at 5:00 AM
+    cron.schedule('0 5 * * 1', async () => {
+        console.log('Running Monday Market scheduler...');
+        await processWeeklyEvents();
+    }, { timezone: "Africa/Lagos" });
+
+    // ── Interval-based events (Announcements) ──
+    // Check every hour if any interval-based event should be posted
+    cron.schedule('0 * * * *', async () => {
+        await processIntervalEvents();
+    }, { timezone: "Africa/Lagos" });
+
     console.log('Daily scheduler initialized.');
 }
 
+// ── Birthday / Wedding Anniversary (single_date) ──
 async function processTodayEvents() {
     try {
         const db = await initDb();
         const today = format(new Date(), 'yyyy-MM-dd');
 
-        // Find events for today
         const events = await db.all(
-            "SELECT * FROM events WHERE event_date LIKE ? AND status = 'active' ORDER BY created_at ASC",
-            [`%${today.substring(5)}`] // Matches MM-DD
+            `SELECT * FROM events 
+             WHERE event_type IN ('birthday', 'wedding_anniversary') 
+             AND event_date LIKE ? 
+             AND status = 'active' 
+             ORDER BY created_at ASC`,
+            [`%${today.substring(5)}`] // Matches MM-DD across years
         );
 
         if (events.length === 0) {
-            console.log('No events found for today:', today);
+            console.log('No birthday/anniversary events for today:', today);
             return;
         }
 
         console.log(`Found ${events.length} events for today. Scheduling posts...`);
 
-        // Schedule each post with a 30-minute delay starting at 6:00 AM
         events.forEach((event, index) => {
             const postHour = 6;
             const postMinute = index * 30;
-
-            // Calculate actual hour and minute
             const actualHour = postHour + Math.floor(postMinute / 60);
             const actualMin = postMinute % 60;
-
             const cronTime = `${actualMin} ${actualHour} * * *`;
 
             cron.schedule(cronTime, async () => {
-                console.log(`Executing post for ${event.first_name} ${event.second_name} at ${actualHour}:${actualMin}`);
+                const displayName = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+                console.log(`Executing post for ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
                 await sendPost(event);
             }, {
                 scheduled: true,
-                timezone: "Africa/Lagos" // Assuming Lagos time, update as needed
+                timezone: "Africa/Lagos"
             });
 
-            console.log(`Scheduled: ${event.first_name} at ${actualHour}:${actualMin}`);
+            const displayName = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+            console.log(`Scheduled: ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
         });
 
     } catch (error) {
@@ -61,11 +77,74 @@ async function processTodayEvents() {
     }
 }
 
+// ── Monday Market (weekly) ──
+async function processWeeklyEvents() {
+    try {
+        const db = await initDb();
+
+        const events = await db.all(
+            `SELECT * FROM events 
+             WHERE event_type = 'monday_market' 
+             AND schedule_type = 'weekly'
+             AND status = 'active'
+             ORDER BY created_at ASC`
+        );
+
+        if (events.length === 0) {
+            console.log('No Monday Market events to post.');
+            return;
+        }
+
+        console.log(`Posting ${events.length} Monday Market events...`);
+
+        for (const event of events) {
+            await sendPost(event);
+        }
+    } catch (error) {
+        console.error('Error processing weekly events:', error);
+    }
+}
+
+// ── Announcements (interval) ──
+async function processIntervalEvents() {
+    try {
+        const db = await initDb();
+        const now = new Date();
+        const currentHour = String(now.getHours()).padStart(2, '0');
+        const currentMin = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = `${currentHour}:${currentMin}`;
+
+        const events = await db.all(
+            `SELECT * FROM events
+             WHERE schedule_type = 'interval'
+             AND status = 'active'
+             AND post_time = ?
+             ORDER BY created_at ASC`,
+            [currentTime]
+        );
+
+        for (const event of events) {
+            // Check if enough days have passed since creation or last post
+            if (event.repeat_interval_days) {
+                const createdDate = new Date(event.created_at);
+                const daysSinceCreation = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+
+                if (daysSinceCreation % event.repeat_interval_days === 0) {
+                    console.log(`Posting interval event: ${event.title || event.id}`);
+                    await sendPost(event);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error processing interval events:', error);
+    }
+}
+
+// ── Send Post (handles all event types) ──
 async function sendPost(event) {
     try {
         const db = await initDb();
         const settings = await db.get('SELECT * FROM settings WHERE id = 1');
-
         const groupId = settings?.whatsapp_group_id || process.env.WHATSAPP_GROUP_ID;
 
         if (!groupId) {
@@ -73,31 +152,49 @@ async function sendPost(event) {
             return;
         }
 
-        let template = settings?.birthday_template;
-        if (event.event_type === 'Wedding Anniversary') {
-            template = settings?.anniversary_template;
+        let caption = '';
+
+        if (event.event_type === 'birthday' || event.event_type === 'wedding_anniversary') {
+            // Use custom caption, event template, or default template
+            if (event.caption && event.caption.trim() !== '') {
+                caption = event.caption;
+            } else if (event.message_template && event.message_template.trim() !== '') {
+                caption = event.message_template;
+            } else {
+                caption = event.event_type === 'wedding_anniversary'
+                    ? (settings?.anniversary_template || '💍 Happy Wedding Anniversary {name}!')
+                    : (settings?.birthday_template || '🎉 Happy Birthday {name}!');
+            }
+            const name = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+            caption = caption.replace(/{name}/g, name);
+        } else {
+            // monday_market / announcement — use caption directly
+            caption = event.caption || event.title || '';
         }
 
-        if (event.message_template && event.message_template.trim() !== '') {
-            template = event.message_template;
-        }
+        const imagePath = process.env.DATA_DIR
+            ? path.resolve(process.env.DATA_DIR, event.design_image_path.replace('uploads/', ''))
+            : path.resolve(event.design_image_path);
 
-        const caption = (template || `🎉 Happy ${event.event_type} {name}!`)
-            .replace(/{name}/g, `${event.first_name} ${event.second_name}`);
+        await waClient.sendImageWithCaption(groupId, imagePath, caption);
 
-        const absolutePath = path.resolve(event.design_image_path);
-        await waClient.sendImageWithCaption(groupId, absolutePath, caption);
+        const displayName = event.first_name
+            ? `${event.first_name} ${event.second_name || ''}`.trim()
+            : event.title || event.event_type;
 
-        const logMsg = `Post sent for ${event.first_name} ${event.second_name}`;
+        const logMsg = `Post sent for ${displayName} (${event.event_type})`;
         console.log(logMsg);
         emitLog({ type: 'success', message: logMsg, timestamp: new Date().toISOString() });
-        await logActivity('whatsapp_post_sent', logMsg);
+        await logActivity(null, 'post_sent', event.id, logMsg);
 
     } catch (error) {
-        const errMsg = `Failed to send post for ${event.first_name}: ${error.message}`;
+        const displayName = event.first_name
+            ? `${event.first_name || ''}`.trim()
+            : event.title || event.event_type;
+        const errMsg = `Failed to send post for ${displayName}: ${error.message}`;
         console.error(errMsg);
         emitLog({ type: 'error', message: errMsg, timestamp: new Date().toISOString() });
-        await logActivity('whatsapp_post_failed', errMsg);
+        await logActivity(null, 'post_failed', event.id, errMsg);
     }
 }
 
