@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
 import axios from 'axios';
 import Dashboard from './components/Dashboard';
 import Events from './components/Events';
@@ -21,6 +21,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
   });
@@ -37,6 +38,12 @@ function App() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // Close sidebar on route change (mobile)
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+  };
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -104,9 +111,22 @@ function App() {
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 glass-sidebar flex flex-col fixed h-full z-10">
-        <div className="p-5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+      <aside className={`
+        w-64 glass-sidebar flex flex-col fixed h-full z-30
+        transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `}>
+        <div className="p-5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-3">
             <img
               src="/logo-dark.png"
@@ -123,66 +143,35 @@ function App() {
               </span>
             </div>
           </div>
+          {/* Close button on mobile */}
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1" style={{ color: 'var(--text-secondary)' }}>
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          {/* Dashboard — visible to all */}
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-          >
-            <LayoutDashboard size={20} />
-            Dashboard
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <button onClick={() => handleTabChange('dashboard')} className={`w-full nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}>
+            <LayoutDashboard size={20} /> Dashboard
           </button>
-
-          {/* Events — visible to all */}
-          <button
-            onClick={() => setActiveTab('events')}
-            className={`w-full nav-link ${activeTab === 'events' ? 'active' : ''}`}
-          >
-            <CalendarDays size={20} />
-            Events
+          <button onClick={() => handleTabChange('events')} className={`w-full nav-link ${activeTab === 'events' ? 'active' : ''}`}>
+            <CalendarDays size={20} /> Events
           </button>
-
-          {/* Activity Logs — admin only */}
           {isAdmin && (
-            <button
-              onClick={() => setActiveTab('activity')}
-              className={`w-full nav-link ${activeTab === 'activity' ? 'active' : ''}`}
-            >
-              <History size={20} />
-              Activity Logs
+            <button onClick={() => handleTabChange('activity')} className={`w-full nav-link ${activeTab === 'activity' ? 'active' : ''}`}>
+              <History size={20} /> Activity Logs
             </button>
           )}
-
-          {/* WhatsApp Status — visible to all */}
-          <button
-            onClick={() => setActiveTab('whatsapp')}
-            className={`w-full nav-link ${activeTab === 'whatsapp' ? 'active' : ''}`}
-          >
-            <MessageSquare size={20} />
-            WhatsApp Status
+          <button onClick={() => handleTabChange('whatsapp')} className={`w-full nav-link ${activeTab === 'whatsapp' ? 'active' : ''}`}>
+            <MessageSquare size={20} /> WhatsApp Status
           </button>
-
-          {/* Settings — admin only */}
           {isAdmin && (
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`w-full nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-            >
-              <SettingsIcon size={20} />
-              Settings
+            <button onClick={() => handleTabChange('settings')} className={`w-full nav-link ${activeTab === 'settings' ? 'active' : ''}`}>
+              <SettingsIcon size={20} /> Settings
             </button>
           )}
-
-          {/* User Management — admin only */}
           {isAdmin && (
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`w-full nav-link ${activeTab === 'users' ? 'active' : ''}`}
-            >
-              <UserCog size={20} />
-              User Management
+            <button onClick={() => handleTabChange('users')} className={`w-full nav-link ${activeTab === 'users' ? 'active' : ''}`}>
+              <UserCog size={20} /> User Management
             </button>
           )}
         </nav>
@@ -223,29 +212,36 @@ function App() {
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-red-500/10 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors"
             style={{ color: 'var(--text-secondary)' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
-            <LogOut size={16} />
-            Sign Out
+            <LogOut size={16} /> Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-64 p-8">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{tabLabel(activeTab)}</h2>
-          <div className="flex items-center gap-4">
+      <main className="flex-1 lg:ml-64 min-w-0">
+        {/* Mobile header */}
+        <header className="sticky top-0 z-10 p-4 lg:p-8 flex justify-between items-center glass-card rounded-none lg:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg" style={{ color: 'var(--text-primary)' }}>
+              <Menu size={24} />
+            </button>
+            <h2 className="text-xl lg:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{tabLabel(activeTab)}</h2>
+          </div>
+          <div className="flex items-center gap-2">
             <button className="p-2 glass-card" style={{ color: 'var(--text-secondary)' }}>
               <Bell size={20} />
             </button>
           </div>
         </header>
 
-        {renderContent()}
+        <div className="p-4 lg:px-8 lg:pb-8">
+          {renderContent()}
+        </div>
       </main>
     </div>
   );

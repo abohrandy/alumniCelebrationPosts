@@ -57,64 +57,62 @@ function Dashboard() {
         return e.title || e.event_type;
     };
 
-    // Get next upcoming single-date events
-    const today = new Date().toISOString().slice(5, 10); // MM-DD
     const upcomingEvents = events
         .filter(e => e.event_date && e.status === 'active')
         .sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
         .slice(0, 8);
 
-    if (loading) return <div className="text-slate-400 text-center py-12">Loading...</div>;
+    if (loading) return <div style={{ color: 'var(--text-muted)' }} className="text-center py-12">Loading...</div>;
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 lg:space-y-8">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 {stats.map(stat => (
-                    <div key={stat.label} className="glass-card p-5">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-slate-400">{stat.label}</span>
-                            <stat.icon size={20} className={stat.color} />
+                    <div key={stat.label} className="glass-card p-4 lg:p-5">
+                        <div className="flex items-center justify-between mb-2 lg:mb-3">
+                            <span className="text-xs lg:text-sm" style={{ color: 'var(--text-secondary)' }}>{stat.label}</span>
+                            <stat.icon size={18} className={stat.color} />
                         </div>
-                        <p className="text-3xl font-bold text-white">{stat.value}</p>
+                        <p className="text-2xl lg:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
                     </div>
                 ))}
             </div>
 
             {/* Event Type Breakdown */}
-            <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Events by Type</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="glass-card p-4 lg:p-6">
+                <h3 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4" style={{ color: 'var(--text-primary)' }}>Events by Type</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                         { type: 'birthday', label: '🎂 Birthdays', count: birthdays.length },
                         { type: 'wedding_anniversary', label: '💍 Weddings', count: weddings.length },
                         { type: 'monday_market', label: '🛒 Monday Market', count: markets.length },
                         { type: 'announcement', label: '📢 Announcements', count: announcements.length },
                     ].map(item => (
-                        <div key={item.type} className="bg-slate-800/50 rounded-xl p-4 text-center">
-                            <p className="text-2xl font-bold text-white">{item.count}</p>
-                            <p className="text-xs text-slate-400 mt-1">{item.label}</p>
+                        <div key={item.type} className="rounded-xl p-3 lg:p-4 text-center" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                            <p className="text-xl lg:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{item.count}</p>
+                            <p className="text-[10px] lg:text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{item.label}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Upcoming Events */}
-            <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Upcoming Events</h3>
+            <div className="glass-card p-4 lg:p-6">
+                <h3 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4" style={{ color: 'var(--text-primary)' }}>Upcoming Events</h3>
                 {upcomingEvents.length === 0 ? (
-                    <p className="text-slate-500 text-sm">No upcoming events scheduled.</p>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No upcoming events scheduled.</p>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2 lg:space-y-3">
                         {upcomingEvents.map(event => (
-                            <div key={event.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${TYPE_COLORS[event.event_type] || ''}`}>
+                            <div key={event.id} className="flex items-center justify-between p-2.5 lg:p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                                <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] lg:text-[10px] font-medium whitespace-nowrap ${TYPE_COLORS[event.event_type] || ''}`}>
                                         {TYPE_LABELS[event.event_type] || event.event_type}
                                     </span>
-                                    <span className="text-white font-medium">{getName(event)}</span>
+                                    <span className="font-medium truncate text-sm" style={{ color: 'var(--text-primary)' }}>{getName(event)}</span>
                                 </div>
-                                <span className="text-xs text-slate-500">{event.event_date}</span>
+                                <span className="text-[10px] lg:text-xs flex-shrink-0 ml-2" style={{ color: 'var(--text-muted)' }}>{event.event_date}</span>
                             </div>
                         ))}
                     </div>

@@ -207,23 +207,22 @@ function Events() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 lg:space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2"
-                    >
-                        <option value="all">All Events ({events.length})</option>
-                        <option value="birthday">Birthdays</option>
-                        <option value="wedding_anniversary">Weddings</option>
-                        <option value="monday_market">Monday Market</option>
-                        <option value="announcement">Announcements</option>
-                    </select>
-                </div>
-                <button onClick={openCreateForm} className="btn-primary flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="text-sm rounded-lg px-3 py-2"
+                    style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                >
+                    <option value="all">All Events ({events.length})</option>
+                    <option value="birthday">Birthdays</option>
+                    <option value="wedding_anniversary">Weddings</option>
+                    <option value="monday_market">Monday Market</option>
+                    <option value="announcement">Announcements</option>
+                </select>
+                <button onClick={openCreateForm} className="btn-primary flex items-center justify-center gap-2">
                     <Plus size={18} />
                     New Event
                 </button>
@@ -232,12 +231,12 @@ function Events() {
             {/* Form Modal */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5">
+                    <div className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 lg:p-6 space-y-4 lg:space-y-5 mx-2 sm:mx-auto">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-white">
+                            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                                 {editingId ? 'Edit Event' : 'Create Event'}
                             </h3>
-                            <button onClick={() => { setShowForm(false); resetForm(); }} className="text-slate-400 hover:text-white">
+                            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ color: 'var(--text-secondary)' }}>
                                 <X size={20} />
                             </button>
                         </div>
@@ -245,7 +244,7 @@ function Events() {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Event Type */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Event Type</label>
+                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Event Type</label>
                                 <select
                                     value={eventType}
                                     onChange={(e) => {
@@ -260,7 +259,8 @@ function Events() {
                                             setScheduleType('interval');
                                         }
                                     }}
-                                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2"
+                                    className="w-full rounded-lg px-3 py-2"
+                                    style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 >
                                     <option value="birthday">🎂 Birthday</option>
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
@@ -272,57 +272,57 @@ function Events() {
                             {/* Dynamic fields based on type */}
                             {isPerson ? (
                                 <>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-400 mb-1">First Name</label>
+                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>First Name</label>
                                             <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                                                className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-400 mb-1">Second Name</label>
+                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Second Name</label>
                                             <input type="text" value={secondName} onChange={(e) => setSecondName(e.target.value)}
-                                                className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-400 mb-1">Phone Number</label>
+                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Phone Number</label>
                                         <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
-                                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" />
+                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-400 mb-1">
+                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                             <Calendar size={14} className="inline mr-1" />
                                             Event Date
                                         </label>
                                         <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
-                                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-400 mb-1">Title</label>
+                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Title</label>
                                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
 
                                     {eventType === 'announcement' && (
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                                     <Repeat size={14} className="inline mr-1" />
                                                     Repeat Every (days)
                                                 </label>
                                                 <input type="number" min="1" value={repeatInterval} onChange={(e) => setRepeatInterval(e.target.value)}
-                                                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                                    className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                                     <Clock size={14} className="inline mr-1" />
                                                     Post Time
                                                 </label>
-                                                <input type="time" value={postTime} onChange={(e) => setPostTime(e.target.value)}
-                                                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2" required />
+                                                <input type="number" min="1" value={repeatInterval} onChange={(e) => setRepeatInterval(e.target.value)}
+                                                    className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                             </div>
                                         </div>
                                     )}
@@ -337,15 +337,15 @@ function Events() {
 
                             {/* Caption */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Caption / Message</label>
+                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
                                 <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3}
                                     placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name.' : 'Enter post caption...'}
-                                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 resize-none" />
+                                    className="w-full rounded-lg px-3 py-2 resize-none" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                             </div>
 
                             {/* Image Upload */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
                                     Design Image
                                 </label>
@@ -368,65 +368,70 @@ function Events() {
             )}
 
             {/* Events List */}
-            <div className="grid gap-4">
+            <div className="grid gap-3 lg:gap-4">
                 {filteredEvents.length === 0 ? (
-                    <div className="glass-card p-12 text-center text-slate-500">
+                    <div className="glass-card p-8 lg:p-12 text-center" style={{ color: 'var(--text-muted)' }}>
                         No events found. Create your first event!
                     </div>
                 ) : (
                     filteredEvents.map(event => (
-                        <div key={event.id} className="glass-card p-4 flex items-center gap-4 hover:border-slate-600 transition-colors">
-                            {/* Image */}
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
-                                {event.design_image_path && (
-                                    <img src={`/${event.design_image_path}`} alt="" className="w-full h-full object-cover" />
-                                )}
+                        <div key={event.id} className="glass-card p-3 lg:p-4 flex flex-col sm:flex-row sm:items-center gap-3 lg:gap-4 transition-colors">
+                            {/* Image + Info row */}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                                    {event.design_image_path && (
+                                        <img src={`/${event.design_image_path}`} alt="" className="w-full h-full object-cover" />
+                                    )}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                        <h4 className="font-semibold truncate text-sm lg:text-base" style={{ color: 'var(--text-primary)' }}>{getDisplayName(event)}</h4>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] lg:text-[10px] font-medium ${EVENT_TYPE_COLORS[event.event_type] || 'bg-slate-500/20 text-slate-400'}`}>
+                                            {EVENT_TYPE_LABELS[event.event_type] || event.event_type}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 lg:gap-3 text-[10px] lg:text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                                        {event.event_date && <span>📅 {event.event_date}</span>}
+                                        {event.schedule_type === 'weekly' && <span>🔄 Weekly</span>}
+                                        {event.schedule_type === 'interval' && <span>🔄 Every {event.repeat_interval_days}d</span>}
+                                        {event.creator_name && <span>by {event.creator_name}</span>}
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-semibold text-white truncate">{getDisplayName(event)}</h4>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${EVENT_TYPE_COLORS[event.event_type] || 'bg-slate-500/20 text-slate-400'}`}>
-                                        {EVENT_TYPE_LABELS[event.event_type] || event.event_type}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 text-xs text-slate-500">
-                                    {event.event_date && <span>📅 {event.event_date}</span>}
-                                    {event.schedule_type === 'weekly' && <span>🔄 Weekly</span>}
-                                    {event.schedule_type === 'interval' && <span>🔄 Every {event.repeat_interval_days}d</span>}
-                                    {event.creator_name && <span>by {event.creator_name}</span>}
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <button
-                                onClick={() => handleToggleStatus(event.id)}
-                                className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${event.status === 'active'
+                            {/* Status + Actions */}
+                            <div className="flex items-center justify-between sm:justify-end gap-2 pl-[60px] sm:pl-0">
+                                <button
+                                    onClick={() => handleToggleStatus(event.id)}
+                                    className={`px-3 py-1 rounded-full text-[10px] lg:text-xs font-medium cursor-pointer transition-colors ${event.status === 'active'
                                         ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
                                         : 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30'
-                                    }`}
-                            >
-                                {event.status}
-                            </button>
+                                        }`}
+                                >
+                                    {event.status}
+                                </button>
 
-                            {/* Actions */}
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => handlePostNow(event.id)}
-                                    className="p-2 text-slate-400 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
-                                    title="Post Now">
-                                    <Send size={16} />
-                                </button>
-                                <button onClick={() => openEditForm(event)}
-                                    className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
-                                    title="Edit">
-                                    <Edit size={16} />
-                                </button>
-                                <button onClick={() => handleDelete(event.id)}
-                                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Delete">
-                                    <Trash2 size={16} />
-                                </button>
+                                <div className="flex items-center gap-0.5">
+                                    <button onClick={() => handlePostNow(event.id)}
+                                        className="p-1.5 lg:p-2 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                        title="Post Now">
+                                        <Send size={14} />
+                                    </button>
+                                    <button onClick={() => openEditForm(event)}
+                                        className="p-1.5 lg:p-2 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                        title="Edit">
+                                        <Edit size={14} />
+                                    </button>
+                                    <button onClick={() => handleDelete(event.id)}
+                                        className="p-1.5 lg:p-2 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                        title="Delete">
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))
