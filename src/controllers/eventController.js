@@ -34,10 +34,16 @@ const eventController = {
             const uploadPath = path.join(uploadDir, fileName);
             const dbPath = `uploads/${subDir}/${fileName}`;
 
-            // Image processing — compress to 90% quality
-            await sharp(image.data)
-                .jpeg({ quality: 90 })
-                .toFile(uploadPath);
+            // Image processing — try sharp, fall back to raw save
+            try {
+                await sharp(image.data)
+                    .jpeg({ quality: 90 })
+                    .toFile(uploadPath);
+            } catch (sharpErr) {
+                console.error('Sharp processing failed, saving raw file:', sharpErr.message);
+                // Fall back to saving the raw uploaded file
+                await image.mv(uploadPath);
+            }
 
             const db = await initDb();
             const userId = req.user ? req.user.id : null;
@@ -73,7 +79,7 @@ const eventController = {
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
             console.error('Error creating event:', error);
-            res.status(500).json({ error: 'Internal server error.' });
+            res.status(500).json({ error: error.message || 'Internal server error.' });
         }
     },
 
