@@ -30,7 +30,11 @@ class WhatsAppClient {
             authStrategy: new LocalAuth({
                 dataPath: authPath
             }),
-            puppeteer: puppeteerOptions
+            puppeteer: puppeteerOptions,
+            webVersionCache: {
+                type: 'remote',
+                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+            }
         });
 
         this.status = 'DISCONNECTED';
@@ -125,8 +129,21 @@ class WhatsAppClient {
                 }),
                 puppeteer: {
                     headless: true,
-                    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--remote-allow-origins=*',
+                        '--disable-gpu',
+                        '--disable-dev-shm-usage',
+                        '--no-zygote',
+                        '--single-process'
+                    ],
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     pipe: true
+                },
+                webVersionCache: {
+                    type: 'remote',
+                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
                 }
             });
             return this.init();
