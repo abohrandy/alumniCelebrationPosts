@@ -359,7 +359,8 @@ function Events() {
 
                             {/* Submit */}
                             <button type="submit" disabled={submitting}
-                                className="w-full btn-primary flex items-center justify-center gap-2 py-3 disabled:opacity-50">
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50"
+                                style={{ backgroundColor: 'var(--color-primary)', cursor: submitting ? 'not-allowed' : 'pointer', position: 'relative', zIndex: 10 }}>
                                 {submitting ? 'Saving...' : (editingId ? 'Update Event' : 'Create Event')}
                             </button>
                         </form>
