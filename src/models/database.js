@@ -170,10 +170,18 @@ async function initDb() {
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             whatsapp_group_id TEXT DEFAULT '',
+            whatsapp_group_id_2 TEXT DEFAULT '',
             birthday_template TEXT DEFAULT '🎉 Happy Birthday {name}! Wishing you joy, success and many more years ahead.',
             anniversary_template TEXT DEFAULT '💍 Happy Wedding Anniversary {name}! May your love continue to grow and your journey together be blessed.'
         )
     `);
+
+    // Add second group column if missing (migration)
+    const settingsInfo = await db.all("PRAGMA table_info(settings)");
+    const settingsCols = settingsInfo.map(c => c.name);
+    if (!settingsCols.includes('whatsapp_group_id_2')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN whatsapp_group_id_2 TEXT DEFAULT ''");
+    }
 
     const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');
     if (settingsCount.count === 0) {

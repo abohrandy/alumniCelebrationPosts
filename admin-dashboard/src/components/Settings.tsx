@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RefreshCw, MessageCircle, Hash } from 'lucide-react';
+import { Save, RefreshCw, MessageCircle, Hash, Users, Search } from 'lucide-react';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:3000/api';
 
 const Settings = () => {
     const [settings, setSettings] = useState({
         whatsapp_group_id: '',
+        whatsapp_group_id_2: '',
         birthday_template: '🎉 Happy Birthday {name}! Wishing you joy, success and many more years ahead.',
         anniversary_template: '💍 Happy Wedding Anniversary {name}! May your love continue to grow and your journey together be blessed.'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [groups, setGroups] = useState<any[]>([]);
+    const [loadingGroups, setLoadingGroups] = useState(false);
+    const [showGroupPicker, setShowGroupPicker] = useState<'primary' | 'secondary' | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -21,9 +23,14 @@ const Settings = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_BASE_URL}/settings`);
+            const response = await axios.get('/api/settings');
             if (response.data) {
-                setSettings(response.data);
+                setSettings({
+                    whatsapp_group_id: response.data.whatsapp_group_id || '',
+                    whatsapp_group_id_2: response.data.whatsapp_group_id_2 || '',
+                    birthday_template: response.data.birthday_template || '',
+                    anniversary_template: response.data.anniversary_template || '',
+                });
             }
         } catch (error) {
             console.error('Error fetching settings:', error);
@@ -38,7 +45,7 @@ const Settings = () => {
         try {
             setSaving(true);
             setMessage({ type: '', text: '' });
-            await axios.post(`${API_BASE_URL}/settings`, settings);
+            await axios.post('/api/settings', settings);
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
         } catch (error) {
             console.error('Error saving settings:', error);
@@ -46,6 +53,34 @@ const Settings = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const fetchGroups = async () => {
+        setLoadingGroups(true);
+        try {
+            const res = await axios.get('/api/whatsapp/groups');
+            setGroups(res.data);
+        } catch (error: any) {
+            setMessage({ type: 'error', text: 'Failed to load groups. Is WhatsApp connected?' });
+        } finally {
+            setLoadingGroups(false);
+        }
+    };
+
+    const handleBrowseGroups = (target: 'primary' | 'secondary') => {
+        setShowGroupPicker(target);
+        if (groups.length === 0) {
+            fetchGroups();
+        }
+    };
+
+    const selectGroup = (groupId: string) => {
+        if (showGroupPicker === 'primary') {
+            setSettings({ ...settings, whatsapp_group_id: groupId });
+        } else {
+            setSettings({ ...settings, whatsapp_group_id_2: groupId });
+        }
+        setShowGroupPicker(null);
     };
 
     if (loading) {
@@ -59,7 +94,7 @@ const Settings = () => {
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="glass-card p-6">
-                <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <h3 className="text-xl font-semibold mb-6 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                     <MessageCircle className="text-primary" size={24} />
                     Message Templates
                 </h3>
@@ -67,51 +102,130 @@ const Settings = () => {
                 <form onSubmit={handleSave} className="space-y-6">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                                 Birthday Template
                             </label>
                             <textarea
                                 value={settings.birthday_template}
                                 onChange={(e) => setSettings({ ...settings, birthday_template: e.target.value })}
-                                className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-primary transition-colors resize-none"
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for birthday posts..."
                             />
-                            <p className="mt-1 text-xs text-slate-500">Use {"{name}"} as a placeholder for the celebrant's name.</p>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} as a placeholder for the celebrant's name.</p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                                 Anniversary Template
                             </label>
                             <textarea
                                 value={settings.anniversary_template}
                                 onChange={(e) => setSettings({ ...settings, anniversary_template: e.target.value })}
-                                className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-primary transition-colors resize-none"
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for anniversary posts..."
                             />
-                            <p className="mt-1 text-xs text-slate-500">Use {"{name}"} as a placeholder for the celebrant's name.</p>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} as a placeholder for the celebrant's name.</p>
                         </div>
                     </div>
 
-                    <div className="border-t border-slate-700/50 pt-6">
-                        <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                            <Hash className="text-primary" size={24} />
-                            System Configuration
+                    <div style={{ borderTop: '1px solid var(--border-color)' }} className="pt-6">
+                        <h3 className="text-xl font-semibold mb-6 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                            <Users className="text-primary" size={24} />
+                            WhatsApp Groups
                         </h3>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-2">
-                                WhatsApp Group ID
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.whatsapp_group_id}
-                                onChange={(e) => setSettings({ ...settings, whatsapp_group_id: e.target.value })}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-primary transition-colors"
-                                placeholder="e.g. 1234567890@g.us"
-                            />
-                            <p className="mt-1 text-xs text-slate-500">The unique identifier for the alumni group where posts will be sent.</p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                    Primary Group ID
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={settings.whatsapp_group_id}
+                                        onChange={(e) => setSettings({ ...settings, whatsapp_group_id: e.target.value })}
+                                        className="flex-1 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="e.g. 1234567890@g.us"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBrowseGroups('primary')}
+                                        className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1 text-sm"
+                                    >
+                                        <Search size={16} /> Browse
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>The main group where posts will be sent.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                    Secondary Group ID <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={settings.whatsapp_group_id_2}
+                                        onChange={(e) => setSettings({ ...settings, whatsapp_group_id_2: e.target.value })}
+                                        className="flex-1 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="e.g. 9876543210@g.us"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBrowseGroups('secondary')}
+                                        className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1 text-sm"
+                                    >
+                                        <Search size={16} /> Browse
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Posts will also be sent to this group if configured.</p>
+                            </div>
                         </div>
+
+                        {/* Group Picker Modal */}
+                        {showGroupPicker && (
+                            <div className="mt-4 glass-card p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                                        Select a group for {showGroupPicker === 'primary' ? 'Primary' : 'Secondary'}
+                                    </h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowGroupPicker(null)}
+                                        className="text-xs px-2 py-1 rounded hover:bg-red-500/10 text-red-400"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                                {loadingGroups ? (
+                                    <div className="flex items-center gap-2 py-4 justify-center">
+                                        <RefreshCw size={16} className="animate-spin text-primary" />
+                                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading groups...</span>
+                                    </div>
+                                ) : groups.length === 0 ? (
+                                    <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No groups found. Make sure WhatsApp is connected.</p>
+                                ) : (
+                                    <div className="max-h-60 overflow-y-auto space-y-1">
+                                        {groups.map((g: any) => (
+                                            <button
+                                                key={g.id}
+                                                type="button"
+                                                onClick={() => selectGroup(g.id)}
+                                                className="w-full flex items-center justify-between p-3 rounded-lg text-left text-sm transition-colors hover:bg-primary/10"
+                                                style={{ color: 'var(--text-primary)' }}
+                                            >
+                                                <span className="font-medium">{g.name}</span>
+                                                <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{g.id}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-between pt-4">

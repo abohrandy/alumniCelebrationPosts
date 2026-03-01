@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { QrCode, RefreshCcw, CheckCircle2, AlertCircle, History, Send } from 'lucide-react';
+import { QrCode, RefreshCcw, CheckCircle2, AlertCircle, History, Send, Power } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3000');
+const socket = io();
 
 const WhatsAppStatus = () => {
     const [status, setStatus] = useState<any>({
@@ -42,7 +42,7 @@ const WhatsAppStatus = () => {
 
     const fetchStatus = async () => {
         try {
-            const res = await axios.get('http://localhost:3000/api/whatsapp/status');
+            const res = await axios.get('/api/whatsapp/status');
             setStatus(res.data);
         } catch (error) {
             console.error('Failed to fetch status');
@@ -54,10 +54,10 @@ const WhatsAppStatus = () => {
         if (!isConnected) return;
         setSending(true);
         try {
-            await axios.post('http://localhost:3000/api/whatsapp/send-test');
+            await axios.post('/api/whatsapp/send-test');
             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
-                msg: 'Test message sent successfully!',
+                msg: 'Test message sent to all configured groups!',
                 type: 'info'
             }, ...prev]);
         } catch (error: any) {
@@ -75,7 +75,7 @@ const WhatsAppStatus = () => {
     const handleReconnect = async () => {
         setReconnecting(true);
         try {
-            await axios.post('http://localhost:3000/api/whatsapp/reconnect');
+            await axios.post('/api/whatsapp/reconnect');
             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
                 msg: 'Reconnection initiated...',
@@ -92,6 +92,28 @@ const WhatsAppStatus = () => {
         }
     };
 
+    const [disconnecting, setDisconnecting] = useState(false);
+    const handleDisconnect = async () => {
+        if (!confirm('Are you sure you want to disconnect WhatsApp? You will need to re-scan the QR code to reconnect.')) return;
+        setDisconnecting(true);
+        try {
+            await axios.post('/api/whatsapp/disconnect');
+            setLogs(prev => [{
+                time: new Date().toLocaleTimeString(),
+                msg: 'WhatsApp session disconnected.',
+                type: 'info'
+            }, ...prev]);
+        } catch (error: any) {
+            setLogs(prev => [{
+                time: new Date().toLocaleTimeString(),
+                msg: 'Failed to disconnect: ' + (error.response?.data?.error || error.message),
+                type: 'error'
+            }, ...prev]);
+        } finally {
+            setDisconnecting(false);
+        }
+    };
+
     const isConnected = status.status === 'CONNECTED';
     const needsAuth = status.status === 'AUTH_REQUIRED';
 
@@ -104,15 +126,26 @@ const WhatsAppStatus = () => {
                         {isConnected ? <CheckCircle2 size={32} /> : <AlertCircle size={32} />}
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-white uppercase tracking-wider">{status.status}</h3>
-                        <p className="text-sm text-slate-500">System is {isConnected ? 'ready to send posts' : 'awaiting connection'}</p>
+                        <h3 className="text-xl font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>{status.status}</h3>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>System is {isConnected ? 'ready to send posts' : 'awaiting connection'}</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
+                    {isConnected && (
+                        <button
+                            onClick={handleDisconnect}
+                            disabled={disconnecting}
+                            className={`px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg flex items-center gap-2 border border-red-500/20 ${disconnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <Power size={16} className={disconnecting ? 'animate-pulse' : ''} />
+                            {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+                        </button>
+                    )}
                     <button
                         onClick={handleReconnect}
                         disabled={reconnecting}
-                        className={`px-4 py-2 glass-card hover:bg-slate-800 text-sm font-bold flex items-center gap-2 ${reconnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`px-4 py-2 glass-card text-sm font-bold flex items-center gap-2 ${reconnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        style={{ color: 'var(--text-primary)' }}
                     >
                         <RefreshCcw size={16} className={reconnecting ? 'animate-spin' : ''} /> {reconnecting ? 'Reconnecting...' : 'Reconnect'}
                     </button>
@@ -134,7 +167,7 @@ const WhatsAppStatus = () => {
                         <QrCode size={120} className="text-primary/5 -mr-8 -mt-8" />
                     </div>
 
-                    <h4 className="text-lg font-bold text-white mb-6">Device Linker</h4>
+                    <h4 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Device Linker</h4>
 
                     {needsAuth && status.qrText ? (
                         <div className="bg-white p-4 rounded-xl shadow-2xl mb-8">
@@ -151,18 +184,18 @@ const WhatsAppStatus = () => {
                             <div className="w-24 h-24 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-6">
                                 <CheckCircle2 size={64} />
                             </div>
-                            <h5 className="text-xl font-bold text-white mb-2">Authenticated Successfully</h5>
-                            <p className="text-slate-400 max-w-xs">Your WhatsApp account is linked. Automated posts will trigger according to schedule.</p>
+                            <h5 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Authenticated Successfully</h5>
+                            <p className="max-w-xs" style={{ color: 'var(--text-secondary)' }}>Your WhatsApp account is linked. Automated posts will trigger according to schedule.</p>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center py-12 text-center">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-6"></div>
-                            <p className="text-slate-500">Generating login session...</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Generating login session...</p>
                         </div>
                     )}
 
-                    <div className="text-xs text-slate-500 space-y-2 max-w-sm">
-                        <p className="font-bold text-slate-300">Instructions:</p>
+                    <div className="text-xs space-y-2 max-w-sm" style={{ color: 'var(--text-muted)' }}>
+                        <p className="font-bold" style={{ color: 'var(--text-secondary)' }}>Instructions:</p>
                         <ol className="list-decimal pl-4 space-y-1">
                             <li>Open WhatsApp on your phone</li>
                             <li>Tap Menu (⋮) or Settings (⚙️)</li>
@@ -174,15 +207,15 @@ const WhatsAppStatus = () => {
 
                 {/* Log Section */}
                 <div className="glass-card flex flex-col">
-                    <div className="p-6 border-b border-slate-700/50 flex items-center gap-2">
-                        <History size={20} className="text-slate-400" />
-                        <h4 className="font-bold text-white">Connection Logs</h4>
+                    <div className="p-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <History size={20} style={{ color: 'var(--text-secondary)' }} />
+                        <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Connection Logs</h4>
                     </div>
                     <div className="flex-1 p-6 space-y-4 font-mono text-xs overflow-y-auto max-h-[400px]">
                         {logs.map((log, i) => (
                             <div key={i} className="flex gap-4">
-                                <span className="text-slate-600">[{log.time}]</span>
-                                <span className={log.type === 'success' ? 'text-emerald-500' : log.type === 'error' ? 'text-red-400' : 'text-slate-400'}>
+                                <span style={{ color: 'var(--text-muted)' }}>[{log.time}]</span>
+                                <span className={log.type === 'success' ? 'text-emerald-500' : log.type === 'error' ? 'text-red-400' : ''} style={log.type !== 'success' && log.type !== 'error' ? { color: 'var(--text-secondary)' } : {}}>
                                     {log.msg}
                                 </span>
                             </div>

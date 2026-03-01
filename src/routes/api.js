@@ -101,12 +101,16 @@ router.post('/whatsapp/send-test', requireAdmin, async (req, res) => {
         const db = await initDb();
         const settings = await db.get('SELECT * FROM settings WHERE id = 1');
         const groupId = settings?.whatsapp_group_id || process.env.WHATSAPP_GROUP_ID;
+        const groupId2 = settings?.whatsapp_group_id_2 || '';
 
         if (!groupId) {
             return res.status(400).json({ error: 'WhatsApp Group ID not configured' });
         }
 
         await waClient.sendTextMessage(groupId, '✅ *MUAAFCT Poster*: Test connection successful!');
+        if (groupId2) {
+            await waClient.sendTextMessage(groupId2, '✅ *MUAAFCT Poster*: Test connection successful!');
+        }
         res.json({ message: 'Test message sent successfully' });
     } catch (error) {
         console.error('Error sending test message:', error);
@@ -120,6 +124,27 @@ router.post('/whatsapp/reconnect', requireAdmin, async (req, res) => {
         res.json({ message: 'Reconnection initiated' });
     } catch (error) {
         console.error('Error initiating reconnection:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/whatsapp/disconnect', requireAdmin, async (req, res) => {
+    try {
+        await waClient.disconnect();
+        await logActivity(req.user.id, 'whatsapp_disconnected', null, 'Admin disconnected WhatsApp session');
+        res.json({ message: 'WhatsApp disconnected successfully' });
+    } catch (error) {
+        console.error('Error disconnecting:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/whatsapp/groups', requireAdmin, async (req, res) => {
+    try {
+        const groups = await waClient.getGroups();
+        res.json(groups);
+    } catch (error) {
+        console.error('Error getting groups:', error);
         res.status(500).json({ error: error.message });
     }
 });

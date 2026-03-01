@@ -207,6 +207,42 @@ class WhatsAppClient {
             throw error;
         }
     }
+
+    async disconnect() {
+        try {
+            console.log('Disconnect/logout requested...');
+            emitLog({ type: 'info', message: 'Disconnecting WhatsApp session...', timestamp: new Date().toISOString() });
+            if (this.client) {
+                await this.client.logout();
+            }
+            this.status = 'DISCONNECTED';
+            this.qrText = '';
+            this.initialized = false;
+            emitLog({ type: 'success', message: 'WhatsApp session disconnected successfully.', timestamp: new Date().toISOString() });
+            emitStatus(this.getStatus());
+        } catch (error) {
+            console.error('Error during disconnect:', error);
+            this.status = 'DISCONNECTED';
+            this.initialized = false;
+            emitStatus(this.getStatus());
+            throw error;
+        }
+    }
+
+    async getGroups() {
+        try {
+            if (this.status !== 'CONNECTED') {
+                throw new Error('WhatsApp is not connected.');
+            }
+            const chats = await this.client.getChats();
+            return chats
+                .filter(c => c.isGroup)
+                .map(c => ({ id: c.id._serialized, name: c.name }));
+        } catch (error) {
+            console.error('Error getting groups:', error);
+            throw error;
+        }
+    }
 }
 
 // Singleton instance

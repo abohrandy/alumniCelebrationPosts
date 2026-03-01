@@ -146,6 +146,7 @@ async function sendPost(event) {
         const db = await initDb();
         const settings = await db.get('SELECT * FROM settings WHERE id = 1');
         const groupId = settings?.whatsapp_group_id || process.env.WHATSAPP_GROUP_ID;
+        const groupId2 = settings?.whatsapp_group_id_2 || '';
 
         if (!groupId) {
             console.error('WhatsApp Group ID not found in settings or .env');
@@ -176,7 +177,18 @@ async function sendPost(event) {
             ? path.resolve(process.env.DATA_DIR, event.design_image_path.replace('uploads/', ''))
             : path.resolve(event.design_image_path);
 
+        // Send to primary group
         await waClient.sendImageWithCaption(groupId, imagePath, caption);
+
+        // Send to secondary group if configured
+        if (groupId2) {
+            try {
+                await waClient.sendImageWithCaption(groupId2, imagePath, caption);
+                console.log(`Also sent to secondary group: ${groupId2}`);
+            } catch (err2) {
+                console.error(`Failed to send to secondary group ${groupId2}:`, err2.message);
+            }
+        }
 
         const displayName = event.first_name
             ? `${event.first_name} ${event.second_name || ''}`.trim()
