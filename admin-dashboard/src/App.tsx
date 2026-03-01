@@ -92,7 +92,7 @@ function App() {
       <aside className="w-64 glass-sidebar flex flex-col fixed h-full z-10">
         <div className="p-6 border-b border-slate-700/50">
           <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
-            Alumni Poster
+            MUAAFCT Poster
           </h1>
           <span className="text-[10px] uppercase tracking-widest text-slate-500 font-medium">
             {isAdmin ? 'Admin' : 'Media'} Panel

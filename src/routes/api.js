@@ -106,7 +106,7 @@ router.post('/whatsapp/send-test', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'WhatsApp Group ID not configured' });
         }
 
-        await waClient.sendTextMessage(groupId, '✅ *Alumni Celebrant Auto Poster*: Test connection successful!');
+        await waClient.sendTextMessage(groupId, '✅ *MUAAFCT Poster*: Test connection successful!');
         res.json({ message: 'Test message sent successfully' });
     } catch (error) {
         console.error('Error sending test message:', error);

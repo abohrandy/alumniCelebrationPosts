@@ -18,7 +18,7 @@ function Login({ onCheckAuth }: LoginProps) {
             <div className="glass-card p-10 w-full max-w-md text-center space-y-8">
                 <div className="space-y-3">
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
-                        Alumni Poster
+                        MUAAFCT Poster
                     </h1>
                     <p className="text-slate-400 text-sm">
                         Multi-Event Posting Platform
