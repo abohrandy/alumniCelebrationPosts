@@ -323,7 +323,7 @@ function Events() {
                                                     <Clock size={14} className="inline mr-1" />
                                                     Post Time
                                                 </label>
-                                                <input type="number" min="1" value={repeatInterval} onChange={(e) => setRepeatInterval(e.target.value)}
+                                                <input type="time" value={postTime} onChange={(e) => setPostTime(e.target.value)}
                                                     className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                             </div>
                                         </div>

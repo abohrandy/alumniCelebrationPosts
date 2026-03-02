@@ -1,5 +1,8 @@
-@import "tailwindcss";
+/* @tailwind base; */
+/* @tailwind components; */
+/* @tailwind utilities; */
 
+/* stylelint-disable-next-line at-rule-no-unknown */
 @theme {
   --color-primary: #6366f1;
   --color-primary-dark: #4f46e5;

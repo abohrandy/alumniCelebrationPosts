@@ -1,23 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Trash2, Edit2, Calendar, Gift, Camera, X, Send } from 'lucide-react';
 import axios from 'axios';
 
+interface Celebrant {
+    id: number;
+    first_name: string;
+    second_name: string;
+    phone_number?: string;
+    event_type: string;
+    event_date: string;
+    message_template?: string;
+    design_image_path?: string;
+}
+
 const Celebrants = () => {
-    const [celebrants, setCelebrants] = useState([]);
+    const [celebrants, setCelebrants] = useState<Celebrant[]>([]);
     const [showModal, setShowModal] = useState(false);
-    const [editingId, setEditingId] = useState(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState({
         first_name: '',
         second_name: '',
         phone_number: '',
-        event_type: 'Birthday',
+        event_type: 'birthday',
         event_date: '',
         message_template: '',
-        design_image: null
+        design_image: null as File | null
     });
-    const [previewUrl, setPreviewUrl] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [ratioWarning, setRatioWarning] = useState(false);
+
 
     useEffect(() => {
         fetchCelebrants();
@@ -45,7 +57,7 @@ const Celebrants = () => {
         }
     };
 
-    const handleEdit = (c: any) => {
+    const handleEdit = (c: Celebrant) => {
         setFormData({
             first_name: c.first_name,
             second_name: c.second_name,
@@ -89,7 +101,7 @@ const Celebrants = () => {
             first_name: '',
             second_name: '',
             phone_number: '',
-            event_type: 'Birthday',
+            event_type: 'birthday',
             event_date: '',
             message_template: '',
             design_image: null
@@ -121,7 +133,7 @@ const Celebrants = () => {
         }
     };
 
-    const filtered = celebrants.filter((c: any) =>
+    const filtered = celebrants.filter((c: Celebrant) =>
         `${c.first_name} ${c.second_name}`.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -163,8 +175,8 @@ const Celebrants = () => {
                             <div className="flex-1">
                                 <h4 className="font-bold text-white text-lg">{c.first_name} {c.second_name}</h4>
                                 <div className="flex items-center gap-2 text-primary font-medium text-xs mt-1">
-                                    {c.event_type === 'Birthday' ? <Gift size={14} /> : <Calendar size={14} />}
-                                    {c.event_type}
+                                    {c.event_type === 'birthday' ? <Gift size={14} /> : <Calendar size={14} />}
+                                    {c.event_type === 'birthday' ? 'Birthday' : 'Wedding Anniversary'}
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">{c.event_date}</p>
                             </div>
@@ -210,8 +222,8 @@ const Celebrants = () => {
                                     <label className="text-sm font-medium text-slate-400">Event Type</label>
                                     <select className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
                                         value={formData.event_type} onChange={e => setFormData({ ...formData, event_type: e.target.value })}>
-                                        <option value="Birthday">Birthday</option>
-                                        <option value="Wedding Anniversary">Wedding Anniversary</option>
+                                        <option value="birthday">Birthday</option>
+                                        <option value="wedding_anniversary">Wedding Anniversary</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">

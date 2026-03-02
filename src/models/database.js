@@ -123,10 +123,71 @@ async function initDb() {
             await db.exec("ALTER TABLE events ADD COLUMN created_by INTEGER");
         }
 
-        // Migrate old event_type values to new lowercase format
-        await db.exec("UPDATE events SET event_type = 'birthday' WHERE event_type = 'Birthday'");
-        await db.exec("UPDATE events SET event_type = 'wedding_anniversary' WHERE event_type = 'Wedding Anniversary'");
+        // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch ──
+        // If we detect the old capitalized constraints, we must recreate the table
+        const tableSchema = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='events'");
+        if (tableSchema && tableSchema.sql.includes("'Birthday'")) {
+            console.log('Old capitalized constraints detected. Recreating events table with new constraints...');
+            await db.exec('PRAGMA foreign_keys = OFF');
+            await db.exec('BEGIN TRANSACTION');
+
+            // 1. Create temporary table
+            await db.exec(`
+                CREATE TABLE events_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    first_name TEXT,
+                    second_name TEXT,
+                    phone_number TEXT,
+                    event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement')),
+                    event_date TEXT,
+                    design_image_path TEXT,
+                    caption TEXT,
+                    message_template TEXT,
+                    schedule_type TEXT DEFAULT 'single_date' CHECK(schedule_type IN ('single_date', 'weekly', 'interval')),
+                    repeat_interval_days INTEGER,
+                    post_time TEXT DEFAULT '06:00',
+                    created_by INTEGER REFERENCES users(id),
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // 2. Copy data while normalizing event_type to lowercase
+            await db.exec(`
+                INSERT INTO events_new (
+                    id, title, first_name, second_name, phone_number, 
+                    event_type, event_date, design_image_path, caption, 
+                    message_template, schedule_type, repeat_interval_days, 
+                    post_time, created_by, status, created_at
+                )
+                SELECT 
+                    id, title, first_name, second_name, phone_number,
+                    CASE 
+                        WHEN event_type = 'Birthday' THEN 'birthday'
+                        WHEN event_type = 'Wedding Anniversary' THEN 'wedding_anniversary'
+                        ELSE LOWER(event_type)
+                    END,
+                    event_date, design_image_path, caption,
+                    message_template, schedule_type, repeat_interval_days,
+                    post_time, created_by, status, created_at
+                FROM events
+            `);
+
+            // 3. Swap tables
+            await db.exec('DROP TABLE events');
+            await db.exec('ALTER TABLE events_new RENAME TO events');
+
+            await db.exec('COMMIT');
+            await db.exec('PRAGMA foreign_keys = ON');
+            console.log('Events table successfully migrated to new constraints.');
+        } else {
+            // Simple value normalization if schema is already correct
+            await db.exec("UPDATE events SET event_type = 'birthday' WHERE event_type = 'Birthday'");
+            await db.exec("UPDATE events SET event_type = 'wedding_anniversary' WHERE event_type = 'Wedding Anniversary'");
+        }
     }
+
 
     // ── Always check: recover from celebrants if events is empty ──
     const eventsCount = await db.get('SELECT COUNT(*) as count FROM events');
