@@ -37,15 +37,16 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 
 interface EventsProps {
     initialShowForm?: boolean;
+    initialFilter?: string;
 }
 
-function Events({ initialShowForm = false }: EventsProps) {
+function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps) {
     const [events, setEvents] = useState<EventItem[]>([]);
     const [showForm, setShowForm] = useState(initialShowForm);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [filterType, setFilterType] = useState('all');
+    const [filterType, setFilterType] = useState(initialFilter);
 
     // Form state
     const [eventType, setEventType] = useState('birthday');
@@ -204,7 +205,9 @@ function Events({ initialShowForm = false }: EventsProps) {
 
     const filteredEvents = filterType === 'all'
         ? events
-        : events.filter(e => e.event_type === filterType);
+        : filterType === 'recurring'
+            ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'announcement')
+            : events.filter(e => e.event_type === filterType);
 
     const getDisplayName = (event: EventItem) => {
         if (event.first_name) return `${event.first_name} ${event.second_name || ''}`.trim();
@@ -230,6 +233,7 @@ function Events({ initialShowForm = false }: EventsProps) {
                     <option value="wedding_anniversary">Weddings</option>
                     <option value="monday_market">Monday Market</option>
                     <option value="announcement">Announcements</option>
+                    <option value="recurring">Recurring (Market/Announce)</option>
                 </select>
                 <button onClick={openCreateForm} className="btn-primary flex items-center justify-center gap-2">
                     <Plus size={18} />

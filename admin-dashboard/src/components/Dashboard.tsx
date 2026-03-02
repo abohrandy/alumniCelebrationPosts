@@ -29,7 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 interface DashboardProps {
-    onNavigate: (tab: string, showForm?: boolean) => void;
+    onNavigate: (tab: string, showForm?: boolean, filter?: string) => void;
 }
 
 function Dashboard({ onNavigate }: DashboardProps) {
@@ -50,10 +50,10 @@ function Dashboard({ onNavigate }: DashboardProps) {
     const announcements = events.filter(e => e.event_type === 'announcement');
 
     const stats = [
-        { label: 'Total Events', value: events.length, icon: CalendarDays, color: 'text-primary' },
-        { label: 'Active Events', value: activeEvents.length, icon: TrendingUp, color: 'text-emerald-400' },
-        { label: 'Birthdays', value: birthdays.length, icon: Users, color: 'text-pink-400' },
-        { label: 'Recurring', value: markets.length + announcements.length, icon: Send, color: 'text-blue-400' },
+        { label: 'Total Events', value: events.length, icon: CalendarDays, color: 'text-primary', filter: 'all' },
+        { label: 'Active Events', value: activeEvents.length, icon: TrendingUp, color: 'text-emerald-400', filter: 'all' },
+        { label: 'Birthdays', value: birthdays.length, icon: Users, color: 'text-pink-400', filter: 'birthday' },
+        { label: 'Recurring', value: markets.length + announcements.length, icon: Send, color: 'text-blue-400', filter: 'recurring' },
     ];
 
     const getName = (e: EventItem) => {
@@ -84,7 +84,11 @@ function Dashboard({ onNavigate }: DashboardProps) {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 {stats.map(stat => (
-                    <div key={stat.label} className="glass-card p-4 lg:p-5">
+                    <div
+                        key={stat.label}
+                        className="glass-card p-4 lg:p-5 cursor-pointer hover:bg-white/5 transition-colors"
+                        onClick={() => onNavigate('events', false, stat.filter)}
+                    >
                         <div className="flex items-center justify-between mb-2 lg:mb-3">
                             <span className="text-xs lg:text-sm" style={{ color: 'var(--text-secondary)' }}>{stat.label}</span>
                             <stat.icon size={18} className={stat.color} />
@@ -104,7 +108,12 @@ function Dashboard({ onNavigate }: DashboardProps) {
                         { type: 'monday_market', label: '🛒 Monday Market', count: markets.length },
                         { type: 'announcement', label: '📢 Announcements', count: announcements.length },
                     ].map(item => (
-                        <div key={item.type} className="rounded-xl p-3 lg:p-4 text-center" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                        <div
+                            key={item.type}
+                            className="rounded-xl p-3 lg:p-4 text-center cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
+                            style={{ backgroundColor: 'var(--bg-card-solid)' }}
+                            onClick={() => onNavigate('events', false, item.type)}
+                        >
                             <p className="text-xl lg:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{item.count}</p>
                             <p className="text-[10px] lg:text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{item.label}</p>
                         </div>
@@ -120,7 +129,12 @@ function Dashboard({ onNavigate }: DashboardProps) {
                 ) : (
                     <div className="space-y-2 lg:space-y-3">
                         {upcomingEvents.map(event => (
-                            <div key={event.id} className="flex items-center justify-between p-2.5 lg:p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                            <div
+                                key={event.id}
+                                className="flex items-center justify-between p-2.5 lg:p-3 rounded-lg cursor-pointer hover:brightness-110 active:scale-[0.99] transition-all"
+                                style={{ backgroundColor: 'var(--bg-card-solid)' }}
+                                onClick={() => onNavigate('events', false, event.event_type)}
+                            >
                                 <div className="flex items-center gap-2 lg:gap-3 min-w-0">
                                     <span className={`px-2 py-0.5 rounded-full text-[9px] lg:text-[10px] font-medium whitespace-nowrap ${TYPE_COLORS[event.event_type] || ''}`}>
                                         {TYPE_LABELS[event.event_type] || event.event_type}

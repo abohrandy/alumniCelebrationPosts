@@ -41,9 +41,12 @@ function App() {
 
   // Close sidebar on route change (mobile)
   const [showEventForm, setShowEventForm] = useState(false);
-  const handleTabChange = (tab: string, showForm: boolean = false) => {
+  const [eventFilter, setEventFilter] = useState('all');
+
+  const handleTabChange = (tab: string, showForm: boolean = false, filter: string = 'all') => {
     setActiveTab(tab);
     setShowEventForm(showForm);
+    setEventFilter(filter);
     setSidebarOpen(false);
   };
 
@@ -90,7 +93,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard key="dashboard" onNavigate={handleTabChange} />;
-      case 'events': return <Events key="events" initialShowForm={showEventForm} />;
+      case 'events': return <Events key="events" initialShowForm={showEventForm} initialFilter={eventFilter} />;
       case 'activity': return isAdmin ? <ActivityLogs key="activity" /> : <Dashboard key="dashboard-fallback" onNavigate={handleTabChange} />;
       case 'whatsapp': return <WhatsAppStatus key="whatsapp" />;
       case 'settings': return isAdmin ? <Settings key="settings" /> : <Dashboard key="dashboard-fallback2" onNavigate={handleTabChange} />;
