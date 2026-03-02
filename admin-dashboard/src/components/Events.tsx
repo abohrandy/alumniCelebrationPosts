@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, Send, X, Image, Calendar, Clock, Repeat } from 'lucide-react';
+import { Plus, Trash2, Edit, Send, X, Image, Calendar, Clock, Repeat, Eye } from 'lucide-react';
 import axios from 'axios';
 
 interface EventItem {
@@ -63,6 +63,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [expiryDate, setExpiryDate] = useState('');
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+    const [viewingEvent, setViewingEvent] = useState<EventItem | null>(null);
 
     useEffect(() => {
         fetchEvents();
@@ -404,6 +405,132 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 </div>
             )}
 
+            {/* View Modal */}
+            {viewingEvent && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+                    <div className="glass-card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl border border-white/10 shadow-2xl">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-black/40 backdrop-blur-xl border-b border-white/10">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${EVENT_TYPE_COLORS[viewingEvent.event_type]}`}>
+                                    {viewingEvent.event_type === 'birthday' && <Calendar size={20} />}
+                                    {viewingEvent.event_type === 'wedding_anniversary' && <Plus size={20} />}
+                                    {viewingEvent.event_type === 'monday_market' && <Repeat size={20} />}
+                                    {viewingEvent.event_type === 'announcement' && <Send size={20} />}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg text-white leading-tight">{getDisplayName(viewingEvent)}</h3>
+                                    <span className="text-xs text-slate-400">{EVENT_TYPE_LABELS[viewingEvent.event_type]}</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setViewingEvent(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-8">
+                            {/* Main Image */}
+                            {viewingEvent.design_image_path && (
+                                <div className="relative group">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                                    <img
+                                        src={`/${viewingEvent.design_image_path}`}
+                                        alt=""
+                                        className="relative w-full aspect-video object-cover rounded-xl border border-white/10 shadow-2xl"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Info Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Event Details</h4>
+                                    <div className="space-y-3">
+                                        {viewingEvent.event_date && (
+                                            <div className="flex items-center gap-3 text-slate-300">
+                                                <div className="p-2 bg-white/5 rounded-lg text-primary"><Calendar size={16} /></div>
+                                                <div>
+                                                    <p className="text-[10px] text-slate-500 uppercase">Event Date</p>
+                                                    <p className="text-sm font-medium">{viewingEvent.event_date}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {viewingEvent.phone_number && (
+                                            <div className="flex items-center gap-3 text-slate-300">
+                                                <div className="p-2 bg-white/5 rounded-lg text-emerald-400"><Send size={16} /></div>
+                                                <div>
+                                                    <p className="text-[10px] text-slate-500 uppercase">Phone Number</p>
+                                                    <p className="text-sm font-medium">{viewingEvent.phone_number}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Schedule</h4>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 text-slate-300">
+                                            <div className="p-2 bg-white/5 rounded-lg text-blue-400"><Clock size={16} /></div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-500 uppercase">Post Time</p>
+                                                <p className="text-sm font-medium">{viewingEvent.post_time || '06:00'}</p>
+                                            </div>
+                                        </div>
+                                        {viewingEvent.schedule_type === 'interval' && (
+                                            <div className="flex items-center gap-3 text-slate-300">
+                                                <div className="p-2 bg-white/5 rounded-lg text-purple-400"><Repeat size={16} /></div>
+                                                <div>
+                                                    <p className="text-[10px] text-slate-500 uppercase">Frequency</p>
+                                                    <p className="text-sm font-medium">Every {viewingEvent.repeat_interval_days} days</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {viewingEvent.expiry_date && (
+                                            <div className="flex items-center gap-3 text-slate-300">
+                                                <div className="p-2 bg-pink-500/10 rounded-lg text-pink-400"><Clock size={16} /></div>
+                                                <div>
+                                                    <p className="text-[10px] text-slate-500 uppercase">Expiry Date</p>
+                                                    <p className="text-sm font-medium text-pink-400">{viewingEvent.expiry_date}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Caption/Message Overlay */}
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Caption / Message Draft</h4>
+                                <div className="p-4 rounded-xl bg-white/5 border border-white/10 italic text-slate-300 text-sm leading-relaxed relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-2 text-slate-600 opacity-20"><Send size={40} /></div>
+                                    {viewingEvent.caption || viewingEvent.message_template || (
+                                        <span className="text-slate-600">No caption provided. Using system default.</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="sticky bottom-0 p-4 bg-black/40 backdrop-blur-xl border-t border-white/10 flex justify-end gap-3 rounded-b-2xl">
+                            <button
+                                onClick={() => setViewingEvent(null)}
+                                className="px-6 py-2 rounded-lg text-sm font-medium border border-white/10 text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => { openEditForm(viewingEvent!); setViewingEvent(null); }}
+                                className="px-6 py-2 rounded-lg text-sm font-medium bg-primary hover:bg-primary-hover text-white transition-all shadow-lg hover:shadow-primary/20"
+                            >
+                                Edit Event
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Events List */}
             <div className="grid gap-3 lg:gap-4">
                 {filteredEvents.length === 0 ? (
@@ -451,6 +578,12 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </button>
 
                                 <div className="flex items-center gap-0.5">
+                                    <button onClick={() => setViewingEvent(event)}
+                                        className="p-1.5 lg:p-2 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                        title="View Details">
+                                        <Eye size={14} />
+                                    </button>
                                     <button onClick={() => handlePostNow(event.id)}
                                         className="p-1.5 lg:p-2 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
                                         style={{ color: 'var(--text-secondary)' }}
