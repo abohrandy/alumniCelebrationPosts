@@ -190,7 +190,8 @@ async function sendPost(event) {
                     : (settings?.birthday_template || '🎉 Happy Birthday {name}!');
             }
             const name = `${event.first_name || ''} ${event.second_name || ''}`.trim();
-            caption = caption.replace(/{name}/g, name);
+            const phone = event.phone_number || '';
+            caption = caption.replace(/{name}/g, name).replace(/{phone}/g, phone);
         } else {
             // monday_market / announcement — use caption directly
             caption = event.caption || event.title || '';

@@ -280,8 +280,8 @@ async function initDb() {
             id INTEGER PRIMARY KEY CHECK (id = 1),
             whatsapp_group_id TEXT DEFAULT '',
             whatsapp_group_id_2 TEXT DEFAULT '',
-            birthday_template TEXT DEFAULT 'Happy Birthday, {name}! 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring individual. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT',
-            anniversary_template TEXT DEFAULT 'Happy Wedding Anniversary, {name}! 💍✨\n\nMUAA FCT celebrates the beautiful bond you share today. May your union continue to be blessed with love, understanding, and joy. Wishing you many more years of togetherness and happiness.\n\nCheers to your beautiful journey! 🥂\n\nWith love always,\nMUAA FCT'
+            birthday_template TEXT DEFAULT 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring woman. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}',
+            anniversary_template TEXT DEFAULT 'Happy Wedding Anniversary to {name} 🎉❤️\n\nMay your love continue to grow stronger, your home be filled with peace, and your union remain blessed with joy and prosperity.\n\nWishing you many more beautiful years together in happiness and good health. 💍✨\n\nFrom MUAA FCT Chapter\n@{phone}'
         )
     `);
 
@@ -293,29 +293,36 @@ async function initDb() {
     }
 
     const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');
-    const defaultBirthday = 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring individual. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT';
-    const defaultAnniversary = 'Happy Wedding Anniversary, {name} 💍✨\n\nMUAA FCT celebrates the beautiful bond you share today. May your union continue to be blessed with love, understanding, and joy. Wishing you many more years of togetherness and happiness.\n\nCheers to your beautiful journey! 🥂\n\nWith love always,\nMUAA FCT';
+    const defaultBirthday = 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring woman. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}';
+    const defaultAnniversary = 'Happy Wedding Anniversary to {name} 🎉❤️\n\nMay your love continue to grow stronger, your home be filled with peace, and your union remain blessed with joy and prosperity.\n\nWishing you many more beautiful years together in happiness and good health. 💍✨\n\nFrom MUAA FCT Chapter\n@{phone}';
 
     if (settingsCount.count === 0) {
         await db.run(`INSERT INTO settings (id, whatsapp_group_id, birthday_template, anniversary_template) 
                      VALUES (1, '', ?, ?)`, [defaultBirthday, defaultAnniversary]);
     } else {
         // Migration: Update existing generic templates to the new MUAA FCT branded ones 
-        // if they are still using the exact old defaults
-        const oldBirthday = '🎉 Happy Birthday {name}! Wishing you joy, success and many more years ahead.';
-        const oldAnniversary = '💍 Happy Wedding Anniversary {name}! May your love continue to grow and your journey together be blessed.';
+        // if they match any of the previous default versions
+        const birthdayDefaults = [
+            '🎉 Happy Birthday {name}! Wishing you joy, success and many more years ahead.',
+            'Happy Birthday, {name}! 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring individual. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT',
+            'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring individual. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT'
+        ];
 
-        await db.run(`
-            UPDATE settings 
-            SET birthday_template = ? 
-            WHERE id = 1 AND (birthday_template = ? OR birthday_template IS NULL OR birthday_template = '')
-        `, [defaultBirthday, oldBirthday]);
+        const anniversaryDefaults = [
+            '💍 Happy Wedding Anniversary {name}! May your love continue to grow and your journey together be blessed.',
+            'Happy Wedding Anniversary, {name}! 💍✨\n\nMUAA FCT celebrates the beautiful bond you share today. May your union continue to be blessed with love, understanding, and joy. Wishing you many more years of togetherness and happiness.\n\nCheers to your beautiful journey! 🥂\n\nWith love always,\nMUAA FCT',
+            'Happy Wedding Anniversary, {name} 💍✨\n\nMUAA FCT celebrates the beautiful bond you share today. May your union continue to be blessed with love, understanding, and joy. Wishing you many more years of togetherness and happiness.\n\nCheers to your beautiful journey! 🥂\n\nWith love always,\nMUAA FCT'
+        ];
 
-        await db.run(`
-            UPDATE settings 
-            SET anniversary_template = ? 
-            WHERE id = 1 AND (anniversary_template = ? OR anniversary_template IS NULL OR anniversary_template = '')
-        `, [defaultAnniversary, oldAnniversary]);
+        const currentSettings = await db.get('SELECT birthday_template, anniversary_template FROM settings WHERE id = 1');
+
+        if (!currentSettings.birthday_template || birthdayDefaults.includes(currentSettings.birthday_template) || currentSettings.birthday_template.trim() === '') {
+            await db.run('UPDATE settings SET birthday_template = ? WHERE id = 1', [defaultBirthday]);
+        }
+
+        if (!currentSettings.anniversary_template || anniversaryDefaults.includes(currentSettings.anniversary_template) || currentSettings.anniversary_template.trim() === '') {
+            await db.run('UPDATE settings SET anniversary_template = ? WHERE id = 1', [defaultAnniversary]);
+        }
     }
 
     // ── Activity Logs table ──

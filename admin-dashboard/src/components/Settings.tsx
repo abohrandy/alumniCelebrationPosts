@@ -112,7 +112,7 @@ const Settings = () => {
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for birthday posts..."
                             />
-                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} as a placeholder for the celebrant's name.</p>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} for name and {"{phone}"} for the phone number.</p>
                         </div>
 
                         <div>
@@ -126,7 +126,7 @@ const Settings = () => {
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for anniversary posts..."
                             />
-                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} as a placeholder for the celebrant's name.</p>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} for name and {"{phone}"} for the phone number.</p>
                         </div>
                     </div>
 
