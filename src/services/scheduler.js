@@ -203,8 +203,8 @@ async function sendPost(event) {
         // Send to primary group
         await waClient.sendImageWithCaption(groupId, imagePath, caption);
 
-        // Send to secondary group if configured
-        if (groupId2) {
+        // Send to secondary group if configured (skip for Monday Market)
+        if (groupId2 && event.event_type !== 'monday_market') {
             try {
                 await waClient.sendImageWithCaption(groupId2, imagePath, caption);
                 console.log(`Also sent to secondary group: ${groupId2}`);
