@@ -5,10 +5,31 @@ const fs = require('fs');
 
 async function initDb() {
     // Use persistent Railway volume if configured, otherwise local directory
-    const dbDir = process.env.DATA_DIR || path.join(__dirname, '..');
-    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+    // Prioritize DATA_DIR, then root directory, then legacy src/ directory
+    let dbDir = process.env.DATA_DIR;
+    let dbPath = '';
 
-    const dbPath = path.join(dbDir, 'database.sqlite');
+    if (dbDir) {
+        dbPath = path.join(dbDir, 'database.sqlite');
+    } else {
+        const rootPath = path.join(__dirname, '..', '..');
+        const legacyPath = path.join(__dirname, '..');
+
+        const rootDb = path.join(rootPath, 'database.sqlite');
+        const legacyDb = path.join(legacyPath, 'database.sqlite');
+
+        // If root has a non-zero size database, use it. Otherwise, if legacy exists, use legacy.
+        if (fs.existsSync(rootDb) && fs.statSync(rootDb).size > 0) {
+            dbPath = rootDb;
+        } else if (fs.existsSync(legacyDb)) {
+            dbPath = legacyDb;
+        } else {
+            dbPath = rootDb; // Default to root for new installs
+        }
+        dbDir = path.dirname(dbPath);
+    }
+
+    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
     const db = await open({
         filename: dbPath,
