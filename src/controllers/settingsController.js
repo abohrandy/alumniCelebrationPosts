@@ -48,7 +48,12 @@ exports.updateSettings = async (req, res) => {
             imgbb_api_key || '',
             instagram_enabled ? 1 : 0
         ]);
-        await logActivity(req.user ? req.user.id : null, 'settings_updated', null, 'Application settings were modified.');
+        await logActivity(req.user ? req.user.id : null, 'settings_updated', null, 'Application settings were modified.', {
+            whatsapp_group_id,
+            whatsapp_group_id_2,
+            instagram_business_id,
+            instagram_enabled
+        });
         res.json({ message: 'Settings updated successfully' });
     } catch (err) {
         console.error('Error updating settings:', err);

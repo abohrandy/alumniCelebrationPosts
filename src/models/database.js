@@ -357,6 +357,7 @@ async function initDb() {
                 action TEXT NOT NULL,
                 event_id INTEGER,
                 description TEXT NOT NULL,
+                details TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -370,6 +371,9 @@ async function initDb() {
         }
         if (!logColumns.includes('action') && logColumns.includes('action_type')) {
             await db.exec("ALTER TABLE activity_logs RENAME COLUMN action_type TO action");
+        }
+        if (!logColumns.includes('details')) {
+            await db.exec("ALTER TABLE activity_logs ADD COLUMN details TEXT");
         }
     }
 
@@ -398,12 +402,13 @@ function getDb() {
     return dbPromise;
 }
 
-async function logActivity(userId, action, eventId, description) {
+async function logActivity(userId, action, eventId, description, details = null) {
     try {
         const db = await getDb();
+        const detailsStr = details && typeof details === 'object' ? JSON.stringify(details) : details;
         await db.run(
-            'INSERT INTO activity_logs (user_id, action, event_id, description) VALUES (?, ?, ?, ?)',
-            [userId || null, action, eventId || null, description]
+            'INSERT INTO activity_logs (user_id, action, event_id, description, details) VALUES (?, ?, ?, ?, ?)',
+            [userId || null, action, eventId || null, description, detailsStr || null]
         );
         const { emitStats } = require('../services/socket');
         emitStats({ action: 'new_log' });

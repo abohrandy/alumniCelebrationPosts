@@ -48,7 +48,7 @@ const celebrantController = {
             );
 
             emitStats({ action: 'create' });
-            await logActivity('celebrant_added', `Added ${event_type} for ${first_name} ${second_name}`);
+            await logActivity(null, 'celebrant_added', result.lastID, `Added ${event_type} for ${first_name} ${second_name}`, { first_name, second_name, event_type, event_date });
             res.status(201).json({ message: 'Celebrant created successfully', id: result.lastID });
         } catch (error) {
             console.error('Error creating celebrant:', error);
@@ -94,7 +94,7 @@ const celebrantController = {
 
             await db.run(updateQuery, queryParams);
             emitStats({ action: 'update' });
-            await logActivity('celebrant_updated', `Updated celebrant ID ${id}`);
+            await logActivity(null, 'celebrant_updated', parseInt(id), `Updated celebrant ID ${id}`, { first_name, second_name, event_type, event_date });
             res.json({ message: 'Celebrant updated successfully.' });
         } catch (error) {
             console.error('Error updating celebrant:', error);
@@ -125,7 +125,7 @@ const celebrantController = {
 
             await db.run("DELETE FROM events WHERE id = ?", [id]);
             emitStats({ action: 'delete' });
-            await logActivity('celebrant_deleted', `Deleted celebrant ID ${id}`);
+            await logActivity(null, 'celebrant_deleted', parseInt(id), `Deleted celebrant ID ${id}`, { id });
             res.json({ message: 'Celebrant deleted.' });
         } catch (error) {
             res.status(500).json({ error: 'Internal server error.' });

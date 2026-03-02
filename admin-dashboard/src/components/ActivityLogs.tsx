@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { History, Filter } from 'lucide-react';
+import { History, Filter, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import axios from 'axios';
 
 interface LogEntry {
@@ -8,6 +8,7 @@ interface LogEntry {
     action: string;
     event_id: number | null;
     description: string;
+    details: string | null;
     created_at: string;
     user_name: string | null;
     user_avatar: string | null;
@@ -51,6 +52,7 @@ function ActivityLogs() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterAction, setFilterAction] = useState('all');
+    const [expandedLogs, setExpandedLogs] = useState<number[]>([]);
 
     useEffect(() => {
         fetchLogs();
@@ -105,39 +107,87 @@ function ActivityLogs() {
                     <div className="p-8 lg:p-12 text-center" style={{ color: 'var(--text-muted)' }}>No activity logs found.</div>
                 ) : (
                     <div className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
-                        {filteredLogs.map(log => (
-                            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 lg:p-4 transition-colors hover:opacity-90">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    {/* User avatar */}
-                                    {log.user_avatar ? (
-                                        <img src={log.user_avatar} alt="" className="w-7 h-7 lg:w-8 lg:h-8 rounded-full flex-shrink-0" />
-                                    ) : (
-                                        <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                            style={{ backgroundColor: 'var(--bg-card-solid)', color: 'var(--text-secondary)' }}>
-                                            {log.user_name ? log.user_name.charAt(0) : 'S'}
+                        {filteredLogs.map(log => {
+                            const isExpanded = expandedLogs.includes(log.id);
+                            const toggleExpand = () => {
+                                setExpandedLogs(prev =>
+                                    isExpanded ? prev.filter(id => id !== log.id) : [...prev, log.id]
+                                );
+                            };
+
+                            let parsedDetails = null;
+                            if (log.details) {
+                                try {
+                                    parsedDetails = JSON.parse(log.details);
+                                } catch (e) {
+                                    parsedDetails = log.details;
+                                }
+                            }
+
+                            return (
+                                <div key={log.id} className="flex flex-col border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
+                                    <div
+                                        onClick={log.details ? toggleExpand : undefined}
+                                        className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 lg:p-4 transition-colors ${log.details ? 'cursor-pointer hover:bg-white/5' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            {/* User avatar */}
+                                            {log.user_avatar ? (
+                                                <img src={log.user_avatar} alt="" className="w-7 h-7 lg:w-8 lg:h-8 rounded-full flex-shrink-0" />
+                                            ) : (
+                                                <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                                    style={{ backgroundColor: 'var(--bg-card-solid)', color: 'var(--text-secondary)' }}>
+                                                    {log.user_name ? log.user_name.charAt(0) : 'S'}
+                                                </div>
+                                            )}
+
+                                            {/* Details Header */}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                                        {log.user_name || 'System'}
+                                                    </span>
+                                                    <span className={`text-xs font-medium ${ACTION_COLORS[log.action] || ''}`} style={!ACTION_COLORS[log.action] ? { color: 'var(--text-secondary)' } : {}}>
+                                                        {ACTION_LABELS[log.action] || log.action}
+                                                    </span>
+                                                    {log.details && (
+                                                        <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 flex items-center gap-1">
+                                                            <Info size={10} /> Details
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{log.description}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Right Side: Time + Chevron */}
+                                        <div className="flex items-center gap-3 justify-between sm:justify-end pl-10 sm:pl-0">
+                                            <span className="text-[10px] lg:text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                                {new Date(log.created_at).toLocaleString()}
+                                            </span>
+                                            {log.details && (
+                                                <div style={{ color: 'var(--text-muted)' }}>
+                                                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Details Body */}
+                                    {isExpanded && log.details && (
+                                        <div className="px-4 pb-4 sm:ml-12">
+                                            <div className="p-3 rounded-lg bg-black/30 border border-white/5 overflow-x-auto">
+                                                <pre className="text-[11px] lg:text-xs font-mono text-slate-400 leading-relaxed">
+                                                    {typeof parsedDetails === 'object'
+                                                        ? JSON.stringify(parsedDetails, null, 2)
+                                                        : parsedDetails}
+                                                </pre>
+                                            </div>
                                         </div>
                                     )}
-
-                                    {/* Details */}
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                                {log.user_name || 'System'}
-                                            </span>
-                                            <span className={`text-xs font-medium ${ACTION_COLORS[log.action] || ''}`} style={!ACTION_COLORS[log.action] ? { color: 'var(--text-secondary)' } : {}}>
-                                                {ACTION_LABELS[log.action] || log.action}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{log.description}</p>
-                                    </div>
                                 </div>
-
-                                {/* Timestamp */}
-                                <span className="text-[10px] lg:text-xs flex-shrink-0 sm:text-right pl-10 sm:pl-0" style={{ color: 'var(--text-muted)' }}>
-                                    {new Date(log.created_at).toLocaleString()}
-                                </span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

@@ -90,7 +90,9 @@ const eventController = {
                 ? `${first_name} ${second_name || ''}`
                 : title || event_type;
 
-            await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`);
+            await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`, {
+                event_type, title, first_name, second_name, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+            });
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
             console.error('Error creating event:', error);
@@ -179,7 +181,9 @@ const eventController = {
             emitStats({ action: 'update' });
 
             const userId = req.user ? req.user.id : null;
-            await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`);
+            await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`, {
+                event_type, title, first_name, second_name, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+            });
             res.json({ message: 'Event updated successfully.' });
         } catch (error) {
             console.error('Error updating event:', error);
@@ -221,7 +225,7 @@ const eventController = {
             emitStats({ action: 'delete' });
 
             const userId = req.user ? req.user.id : null;
-            await logActivity(userId, 'delete_event', parseInt(id), `Deleted event ID ${id}`);
+            await logActivity(userId, 'delete_event', parseInt(id), `Deleted event ID ${id}`, { id });
             res.json({ message: 'Event deleted.' });
         } catch (error) {
             res.status(500).json({ error: 'Internal server error.' });

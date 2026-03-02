@@ -241,10 +241,10 @@ async function sendPost(event) {
                     settings.instagram_access_token
                 );
                 console.log(`Instagram post successful! Post ID: ${igPostId}`);
-                await logActivity(null, 'instagram_post_sent', event.id, `Instagram post sent. ID: ${igPostId}`);
+                await logActivity(null, 'instagram_post_sent', event.id, `Instagram post sent. ID: ${igPostId}`, { platform: 'instagram', post_id: igPostId, public_url: publicUrl });
             } catch (igError) {
                 console.error('Instagram posting failed:', igError.message);
-                await logActivity(null, 'instagram_post_failed', event.id, `Instagram failed: ${igError.message}`);
+                await logActivity(null, 'instagram_post_failed', event.id, `Instagram failed: ${igError.message}`, { platform: 'instagram', error: igError.message });
                 // Don't throw here, keep WhatsApp log success if WhatsApp worked
             }
         }
@@ -256,7 +256,13 @@ async function sendPost(event) {
         const logMsg = `Post sent for ${displayName} (${event.event_type})`;
         console.log(logMsg);
         emitLog({ type: 'success', message: logMsg, timestamp: new Date().toISOString() });
-        await logActivity(null, 'post_sent', event.id, logMsg);
+        await logActivity(null, 'post_sent', event.id, logMsg, {
+            event_type: event.event_type,
+            display_name: displayName,
+            whatsapp_primary: groupId,
+            whatsapp_secondary: groupId2 || null,
+            caption: caption
+        });
 
     } catch (error) {
         const displayName = event.first_name
@@ -265,7 +271,7 @@ async function sendPost(event) {
         const errMsg = `Failed to send post for ${displayName}: ${error.message}`;
         console.error(errMsg);
         emitLog({ type: 'error', message: errMsg, timestamp: new Date().toISOString() });
-        await logActivity(null, 'post_failed', event.id, errMsg);
+        await logActivity(null, 'post_failed', event.id, errMsg, { error: error.message });
     }
 }
 
