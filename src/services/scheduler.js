@@ -55,7 +55,7 @@ async function processTodayEvents() {
 
         events.forEach((event, index) => {
             const postHour = 6;
-            const postMinute = index * 30;
+            const postMinute = index * 10;
             const actualHour = postHour + Math.floor(postMinute / 60);
             const actualMin = postMinute % 60;
             const cronTime = `${actualMin} ${actualHour} * * *`;
