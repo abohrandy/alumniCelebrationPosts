@@ -40,8 +40,10 @@ function App() {
   }, [theme]);
 
   // Close sidebar on route change (mobile)
-  const handleTabChange = (tab: string) => {
+  const [showEventForm, setShowEventForm] = useState(false);
+  const handleTabChange = (tab: string, showForm: boolean = false) => {
     setActiveTab(tab);
+    setShowEventForm(showForm);
     setSidebarOpen(false);
   };
 
@@ -87,13 +89,13 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard key="dashboard" />;
-      case 'events': return <Events key="events" />;
-      case 'activity': return isAdmin ? <ActivityLogs key="activity" /> : <Dashboard key="dashboard-fallback" />;
+      case 'dashboard': return <Dashboard key="dashboard" onNavigate={handleTabChange} />;
+      case 'events': return <Events key="events" initialShowForm={showEventForm} />;
+      case 'activity': return isAdmin ? <ActivityLogs key="activity" /> : <Dashboard key="dashboard-fallback" onNavigate={handleTabChange} />;
       case 'whatsapp': return <WhatsAppStatus key="whatsapp" />;
-      case 'settings': return isAdmin ? <Settings key="settings" /> : <Dashboard key="dashboard-fallback2" />;
-      case 'users': return isAdmin ? <UserManagement key="users" /> : <Dashboard key="dashboard-fallback3" />;
-      default: return <Dashboard key="dashboard-default" />;
+      case 'settings': return isAdmin ? <Settings key="settings" /> : <Dashboard key="dashboard-fallback2" onNavigate={handleTabChange} />;
+      case 'users': return isAdmin ? <UserManagement key="users" /> : <Dashboard key="dashboard-fallback3" onNavigate={handleTabChange} />;
+      default: return <Dashboard key="dashboard-default" onNavigate={handleTabChange} />;
     }
   };
 

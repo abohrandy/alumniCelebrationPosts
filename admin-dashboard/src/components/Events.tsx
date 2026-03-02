@@ -35,9 +35,13 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
     announcement: 'bg-blue-500/20 text-blue-400'
 };
 
-function Events() {
+interface EventsProps {
+    initialShowForm?: boolean;
+}
+
+function Events({ initialShowForm = false }: EventsProps) {
     const [events, setEvents] = useState<EventItem[]>([]);
-    const [showForm, setShowForm] = useState(false);
+    const [showForm, setShowForm] = useState(initialShowForm);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

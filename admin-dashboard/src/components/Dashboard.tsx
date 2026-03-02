@@ -28,7 +28,11 @@ const TYPE_LABELS: Record<string, string> = {
     announcement: 'Announce'
 };
 
-function Dashboard() {
+interface DashboardProps {
+    onNavigate: (tab: string, showForm?: boolean) => void;
+}
+
+function Dashboard({ onNavigate }: DashboardProps) {
     const [events, setEvents] = useState<EventItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -66,6 +70,17 @@ function Dashboard() {
 
     return (
         <div className="space-y-6 lg:space-y-8">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl lg:text-2xl font-bold hidden lg:block" style={{ color: 'var(--text-primary)' }}>Overview</h2>
+                <button
+                    onClick={() => onNavigate('events', true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-primary/20 bg-gradient-to-r from-primary to-indigo-600"
+                >
+                    <CalendarDays size={18} />
+                    Create New Event
+                </button>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 {stats.map(stat => (
