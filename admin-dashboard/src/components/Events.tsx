@@ -16,6 +16,7 @@ interface EventItem {
     schedule_type: string;
     repeat_interval_days: number | null;
     post_time: string | null;
+    expiry_date: string | null;
     status: string;
     creator_name: string | null;
     created_at: string;
@@ -59,6 +60,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [scheduleType, setScheduleType] = useState('single_date');
     const [repeatInterval, setRepeatInterval] = useState('');
     const [postTime, setPostTime] = useState('06:00');
+    const [expiryDate, setExpiryDate] = useState('');
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
@@ -88,6 +90,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setScheduleType('single_date');
         setRepeatInterval('');
         setPostTime('06:00');
+        setExpiryDate('');
         setImageFiles([]);
         setPreviewUrls([]);
         setEditingId(null);
@@ -110,6 +113,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setScheduleType(event.schedule_type || 'single_date');
         setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : '');
         setPostTime(event.post_time || '06:00');
+        setExpiryDate(event.expiry_date || '');
         setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
         setShowForm(true);
     };
@@ -144,6 +148,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 formData.append('post_time', postTime);
                 if (scheduleType === 'interval') {
                     formData.append('repeat_interval_days', repeatInterval);
+                    if (expiryDate) formData.append('expiry_date', expiryDate);
                 }
             }
 
@@ -348,6 +353,17 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </>
                             )}
 
+                            {eventType === 'announcement' && scheduleType === 'interval' && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Expiry Date (Announce until this date)</label>
+                                    <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)}
+                                        className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                                    <div className="mt-1 text-[10px] text-slate-500">
+                                        Optional. The announcement will stop after this date.
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Caption */}
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
@@ -416,6 +432,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         {event.event_date && <span>📅 {event.event_date}</span>}
                                         {event.schedule_type === 'weekly' && <span>🔄 Weekly</span>}
                                         {event.schedule_type === 'interval' && <span>🔄 Every {event.repeat_interval_days}d</span>}
+                                        {event.expiry_date && <span className="text-pink-400 font-medium">⌛ Expires: {event.expiry_date}</span>}
                                         {event.creator_name && <span>by {event.creator_name}</span>}
                                     </div>
                                 </div>

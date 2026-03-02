@@ -53,8 +53,8 @@ const eventController = {
 
             const result = await db.run(
                 `INSERT INTO events (title, first_name, second_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     first_name || null,
@@ -69,6 +69,7 @@ const eventController = {
                     repeat_interval_days || null,
                     post_time || '06:00',
                     0, // initial index
+                    expiry_date || null,
                     userId
                 ]
             );
@@ -113,7 +114,7 @@ const eventController = {
                 UPDATE events 
                 SET title = ?, first_name = ?, second_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
-                    schedule_type = ?, repeat_interval_days = ?, post_time = ?
+                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?
             `;
             let queryParams = [
                 title || null,
@@ -126,7 +127,8 @@ const eventController = {
                 message_template || null,
                 schedule_type || 'single_date',
                 repeat_interval_days || null,
-                post_time || '06:00'
+                post_time || '06:00',
+                expiry_date || null
             ];
 
             if (req.files && (req.files.design_image || req.files['design_image[]'])) {

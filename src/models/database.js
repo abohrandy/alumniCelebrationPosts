@@ -84,6 +84,7 @@ async function initDb() {
                 current_image_index INTEGER DEFAULT 0,
                 created_by INTEGER REFERENCES users(id),
                 status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                expiry_date TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -157,6 +158,9 @@ async function initDb() {
         }
         if (!columnNames.includes('current_image_index')) {
             await db.exec("ALTER TABLE events ADD COLUMN current_image_index INTEGER DEFAULT 0");
+        }
+        if (!columnNames.includes('expiry_date')) {
+            await db.exec("ALTER TABLE events ADD COLUMN expiry_date TEXT");
         }
 
         // ── Always ensure event_images table exists ──

@@ -148,6 +148,16 @@ async function processIntervalEvents() {
         );
 
         for (const event of events) {
+            // Check if event has expired
+            if (event.expiry_date) {
+                const expiryDate = new Date(event.expiry_date);
+                expiryDate.setHours(23, 59, 59, 999); // Include the expiry date itself
+                if (now > expiryDate) {
+                    console.log(`Event ${event.id} (${event.title}) has expired on ${event.expiry_date}. Skipping.`);
+                    continue;
+                }
+            }
+
             // Check if enough days have passed since creation or last post
             if (event.repeat_interval_days) {
                 const createdDate = new Date(event.created_at);
