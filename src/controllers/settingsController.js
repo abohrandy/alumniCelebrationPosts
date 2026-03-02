@@ -12,7 +12,16 @@ exports.getSettings = async (req, res) => {
 };
 
 exports.updateSettings = async (req, res) => {
-    const { whatsapp_group_id, whatsapp_group_id_2, birthday_template, anniversary_template } = req.body;
+    const {
+        whatsapp_group_id,
+        whatsapp_group_id_2,
+        birthday_template,
+        anniversary_template,
+        instagram_business_id,
+        instagram_access_token,
+        imgbb_api_key,
+        instagram_enabled
+    } = req.body;
 
     try {
         const db = await initDb();
@@ -21,11 +30,24 @@ exports.updateSettings = async (req, res) => {
             SET whatsapp_group_id = ?, 
                 whatsapp_group_id_2 = ?,
                 birthday_template = ?, 
-                anniversary_template = ?
+                anniversary_template = ?,
+                instagram_business_id = ?,
+                instagram_access_token = ?,
+                imgbb_api_key = ?,
+                instagram_enabled = ?
             WHERE id = 1
         `;
 
-        await db.run(query, [whatsapp_group_id, whatsapp_group_id_2 || '', birthday_template, anniversary_template]);
+        await db.run(query, [
+            whatsapp_group_id,
+            whatsapp_group_id_2 || '',
+            birthday_template,
+            anniversary_template,
+            instagram_business_id || '',
+            instagram_access_token || '',
+            imgbb_api_key || '',
+            instagram_enabled ? 1 : 0
+        ]);
         await logActivity(req.user ? req.user.id : null, 'settings_updated', null, 'Application settings were modified.');
         res.json({ message: 'Settings updated successfully' });
     } catch (err) {

@@ -280,6 +280,10 @@ async function initDb() {
             id INTEGER PRIMARY KEY CHECK (id = 1),
             whatsapp_group_id TEXT DEFAULT '',
             whatsapp_group_id_2 TEXT DEFAULT '',
+            instagram_business_id TEXT DEFAULT '',
+            instagram_access_token TEXT DEFAULT '',
+            imgbb_api_key TEXT DEFAULT '',
+            instagram_enabled INTEGER DEFAULT 0,
             birthday_template TEXT DEFAULT 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring woman. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}',
             anniversary_template TEXT DEFAULT 'Happy Wedding Anniversary to {name} 🎉❤️\n\nMay your love continue to grow stronger, your home be filled with peace, and your union remain blessed with joy and prosperity.\n\nWishing you many more beautiful years together in happiness and good health. 💍✨\n\nFrom MUAA FCT Chapter\n@{phone}'
         )
@@ -290,6 +294,18 @@ async function initDb() {
     const settingsCols = settingsInfo.map(c => c.name);
     if (!settingsCols.includes('whatsapp_group_id_2')) {
         await db.exec("ALTER TABLE settings ADD COLUMN whatsapp_group_id_2 TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('instagram_business_id')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN instagram_business_id TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('instagram_access_token')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN instagram_access_token TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('imgbb_api_key')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN imgbb_api_key TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('instagram_enabled')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN instagram_enabled INTEGER DEFAULT 0");
     }
 
     const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');

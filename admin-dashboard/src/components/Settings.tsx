@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RefreshCw, MessageCircle, Hash, Users, Search } from 'lucide-react';
+import { Save, RefreshCw, MessageCircle, Users, Search, Instagram } from 'lucide-react';
 import axios from 'axios';
 
 const Settings = () => {
     const [settings, setSettings] = useState({
         whatsapp_group_id: '',
         whatsapp_group_id_2: '',
-        birthday_template: '🎉 Happy Birthday {name}! Wishing you joy, success and many more years ahead.',
-        anniversary_template: '💍 Happy Wedding Anniversary {name}! May your love continue to grow and your journey together be blessed.'
+        instagram_business_id: '',
+        instagram_access_token: '',
+        imgbb_api_key: '',
+        instagram_enabled: false,
+        birthday_template: '',
+        anniversary_template: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -28,6 +32,10 @@ const Settings = () => {
                 setSettings({
                     whatsapp_group_id: response.data.whatsapp_group_id || '',
                     whatsapp_group_id_2: response.data.whatsapp_group_id_2 || '',
+                    instagram_business_id: response.data.instagram_business_id || '',
+                    instagram_access_token: response.data.instagram_access_token || '',
+                    imgbb_api_key: response.data.imgbb_api_key || '',
+                    instagram_enabled: !!response.data.instagram_enabled,
                     birthday_template: response.data.birthday_template || '',
                     anniversary_template: response.data.anniversary_template || '',
                 });
@@ -226,6 +234,76 @@ const Settings = () => {
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border-color)' }} className="pt-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                <Instagram className="text-pink-500" size={24} />
+                                Instagram Integration (Official API)
+                            </h3>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.instagram_enabled}
+                                    onChange={(e) => setSettings({ ...settings, instagram_enabled: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                <span className="ms-3 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Enabled</span>
+                            </label>
+                        </div>
+
+                        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 text-sm mb-6">
+                            <p className="font-semibold mb-1 flex items-center gap-1">🚀 Important Requirement:</p>
+                            <p>Instagram requires images to be available via a **Public URL**. We use **ImgBB** to host your images temporarily before posting.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                    ImgBB API Key
+                                </label>
+                                <input
+                                    type="text"
+                                    value={settings.imgbb_api_key}
+                                    onChange={(e) => setSettings({ ...settings, imgbb_api_key: e.target.value })}
+                                    className="w-full rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11"
+                                    style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                    placeholder="Enter your ImgBB API Key..."
+                                />
+                                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Get one for free at <a href="https://api.imgbb.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">api.imgbb.com</a></p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                        Instagram Business Account ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.instagram_business_id}
+                                        onChange={(e) => setSettings({ ...settings, instagram_business_id: e.target.value })}
+                                        className="w-full rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="Enter Instagram ID..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                        Instagram Access Token
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={settings.instagram_access_token}
+                                        onChange={(e) => setSettings({ ...settings, instagram_access_token: e.target.value })}
+                                        className="w-full rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="Enter Access Token..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-4">

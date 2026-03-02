@@ -5,6 +5,7 @@ const path = require('path');
 const { format } = require('date-fns');
 const { emitLog } = require('./socket');
 const { logActivity } = require('../models/database');
+const instagram = require('./instagram');
 
 async function scheduleDailyPosts() {
     // ── Birthday & Wedding Anniversary ──
@@ -211,6 +212,30 @@ async function sendPost(event) {
                 console.log(`Also sent to secondary group: ${groupId2}`);
             } catch (err2) {
                 console.error(`Failed to send to secondary group ${groupId2}:`, err2.message);
+            }
+        }
+
+        // --- Instagram Posting ---
+        if (settings?.instagram_enabled === 1 || settings?.instagram_enabled === true) {
+            try {
+                console.log('Instagram posting enabled. Preparing image...');
+                // 1. Upload to ImgBB to get public URL
+                const publicUrl = await instagram.uploadToImgBB(imagePath, settings.imgbb_api_key);
+                console.log(`Image uploaded to ImgBB: ${publicUrl}`);
+
+                // 2. Post to Instagram
+                const igPostId = await instagram.postToInstagram(
+                    publicUrl,
+                    caption,
+                    settings.instagram_business_id,
+                    settings.instagram_access_token
+                );
+                console.log(`Instagram post successful! Post ID: ${igPostId}`);
+                await logActivity(null, 'instagram_post_sent', event.id, `Instagram post sent. ID: ${igPostId}`);
+            } catch (igError) {
+                console.error('Instagram posting failed:', igError.message);
+                await logActivity(null, 'instagram_post_failed', event.id, `Instagram failed: ${igError.message}`);
+                // Don't throw here, keep WhatsApp log success if WhatsApp worked
             }
         }
 
