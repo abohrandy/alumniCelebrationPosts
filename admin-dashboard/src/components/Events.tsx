@@ -148,8 +148,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 formData.append('post_time', postTime);
                 if (scheduleType === 'interval') {
                     formData.append('repeat_interval_days', repeatInterval);
-                    if (expiryDate) formData.append('expiry_date', expiryDate);
                 }
+                if (expiryDate) formData.append('expiry_date', expiryDate);
             }
 
             formData.append('caption', caption);
@@ -353,9 +353,9 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </>
                             )}
 
-                            {eventType === 'announcement' && scheduleType === 'interval' && (
+                            {eventType === 'announcement' && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Expiry Date (Announce until this date)</label>
+                                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Expiry Date (Stop announcing after this date)</label>
                                     <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)}
                                         className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                                     <div className="mt-1 text-[10px] text-slate-500">

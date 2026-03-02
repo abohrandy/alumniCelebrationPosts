@@ -11,7 +11,7 @@ const eventController = {
                 event_type, title,
                 first_name, second_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             } = req.body;
 
             if (!req.files || (!req.files.design_image && !req.files['design_image[]'])) {
@@ -105,7 +105,7 @@ const eventController = {
                 event_type, title,
                 first_name, second_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             } = req.body;
 
             const db = await initDb();
