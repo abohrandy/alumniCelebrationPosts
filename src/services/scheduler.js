@@ -197,7 +197,7 @@ async function sendPost(event) {
         }
 
         const imagePath = process.env.DATA_DIR
-            ? path.resolve(process.env.DATA_DIR, event.design_image_path.replace('uploads/', ''))
+            ? path.resolve(process.env.DATA_DIR, event.design_image_path)
             : path.resolve(event.design_image_path);
 
         // Send to primary group
