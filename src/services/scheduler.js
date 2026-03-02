@@ -98,7 +98,30 @@ async function processWeeklyEvents() {
         console.log(`Posting ${events.length} Monday Market events...`);
 
         for (const event of events) {
-            await sendPost(event);
+            // Get all images for this event
+            const images = await db.all(
+                'SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC',
+                [event.id]
+            );
+
+            if (images.length > 0) {
+                // Determine which image to post
+                const index = event.current_image_index % images.length;
+                const selectedImage = images[index];
+
+                // Temporarily override the event's design_image_path for sendPost
+                const eventToPost = { ...event, design_image_path: selectedImage.image_path };
+                await sendPost(eventToPost);
+
+                // Update index for next week
+                await db.run(
+                    'UPDATE events SET current_image_index = ? WHERE id = ?',
+                    [(index + 1) % images.length, event.id]
+                );
+            } else {
+                // Fallback to single image if no records in event_images
+                await sendPost(event);
+            }
         }
     } catch (error) {
         console.error('Error processing weekly events:', error);

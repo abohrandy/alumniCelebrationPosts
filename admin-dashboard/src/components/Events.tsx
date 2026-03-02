@@ -54,8 +54,8 @@ function Events() {
     const [scheduleType, setScheduleType] = useState('single_date');
     const [repeatInterval, setRepeatInterval] = useState('');
     const [postTime, setPostTime] = useState('06:00');
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [imageFiles, setImageFiles] = useState<File[]>([]);
+    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
     useEffect(() => {
         fetchEvents();
@@ -83,8 +83,8 @@ function Events() {
         setScheduleType('single_date');
         setRepeatInterval('');
         setPostTime('06:00');
-        setImageFile(null);
-        setPreviewUrl(null);
+        setImageFiles([]);
+        setPreviewUrls([]);
         setEditingId(null);
     };
 
@@ -105,15 +105,16 @@ function Events() {
         setScheduleType(event.schedule_type || 'single_date');
         setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : '');
         setPostTime(event.post_time || '06:00');
-        setPreviewUrl(event.design_image_path ? `/${event.design_image_path}` : null);
+        setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
         setShowForm(true);
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setImageFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            setImageFiles(files);
+            const urls = files.map(file => URL.createObjectURL(file));
+            setPreviewUrls(urls);
         }
     };
 
@@ -143,8 +144,10 @@ function Events() {
 
             formData.append('caption', caption);
 
-            if (imageFile) {
-                formData.append('design_image', imageFile);
+            if (imageFiles.length > 0) {
+                imageFiles.forEach(file => {
+                    formData.append('design_image', file);
+                });
             }
 
             if (editingId) {
@@ -349,13 +352,20 @@ function Events() {
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
-                                    Design Image
+                                    Design Image {eventType === 'monday_market' ? '(Select Multiple)' : ''}
                                 </label>
-                                <input type="file" accept="image/*" onChange={handleImageChange}
+                                <input type="file" accept="image/*"
+                                    multiple={eventType === 'monday_market'}
+                                    onChange={handleImageChange}
                                     className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-medium file:cursor-pointer"
                                     required={!editingId} />
-                                {previewUrl && (
-                                    <img src={previewUrl} alt="Preview" className="mt-3 rounded-lg max-h-48 object-cover w-full" />
+
+                                {previewUrls.length > 0 && (
+                                    <div className={`mt-3 grid gap-2 ${previewUrls.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                                        {previewUrls.map((url, idx) => (
+                                            <img key={idx} src={url} alt="Preview" className="rounded-lg h-24 sm:h-32 object-cover w-full border border-slate-700" />
+                                        ))}
+                                    </div>
                                 )}
                             </div>
 

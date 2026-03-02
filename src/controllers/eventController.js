@@ -14,11 +14,12 @@ const eventController = {
                 event_date, schedule_type, repeat_interval_days, post_time
             } = req.body;
 
-            if (!req.files || !req.files.design_image) {
+            if (!req.files || (!req.files.design_image && !req.files['design_image[]'])) {
                 return res.status(400).json({ error: 'No image uploaded.' });
             }
 
-            const image = req.files.design_image;
+            const images = req.files.design_image || req.files['design_image[]'];
+            const filesToProcess = Array.isArray(images) ? images : [images];
             const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
             // Determine upload subdirectory by event type
@@ -30,19 +31,21 @@ const eventController = {
             const uploadDir = path.join(uploadBase, subDir);
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-            const fileName = `${Date.now()}-${image.name}`;
-            const uploadPath = path.join(uploadDir, fileName);
-            const dbPath = `uploads/${subDir}/${fileName}`;
+            const dbPaths = [];
+            for (const file of filesToProcess) {
+                const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name}`;
+                const uploadPath = path.join(uploadDir, fileName);
+                const dbPath = `uploads/${subDir}/${fileName}`;
 
-            // Image processing — try sharp, fall back to raw save
-            try {
-                await sharp(image.data)
-                    .jpeg({ quality: 90 })
-                    .toFile(uploadPath);
-            } catch (sharpErr) {
-                console.error('Sharp processing failed, saving raw file:', sharpErr.message);
-                // Fall back to saving the raw uploaded file
-                await image.mv(uploadPath);
+                try {
+                    await sharp(file.data)
+                        .jpeg({ quality: 90 })
+                        .toFile(uploadPath);
+                } catch (sharpErr) {
+                    console.error('Sharp processing failed, saving raw file:', sharpErr.message);
+                    await file.mv(uploadPath);
+                }
+                dbPaths.push(dbPath);
             }
 
             const db = await initDb();
@@ -50,8 +53,8 @@ const eventController = {
 
             const result = await db.run(
                 `INSERT INTO events (title, first_name, second_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     first_name || null,
@@ -59,15 +62,26 @@ const eventController = {
                     phone_number || null,
                     event_type,
                     event_date || null,
-                    dbPath,
+                    dbPaths[0], // First image as main path
                     caption || null,
                     message_template || null,
                     schedule_type || 'single_date',
                     repeat_interval_days || null,
                     post_time || '06:00',
+                    0, // initial index
                     userId
                 ]
             );
+
+            const eventId = result.lastID;
+
+            // Insert all images into event_images table
+            for (let i = 0; i < dbPaths.length; i++) {
+                await db.run(
+                    'INSERT INTO event_images (event_id, image_path, sort_order) VALUES (?, ?, ?)',
+                    [eventId, dbPaths[i], i]
+                );
+            }
 
             emitStats({ action: 'create' });
 
@@ -115,8 +129,9 @@ const eventController = {
                 post_time || '06:00'
             ];
 
-            if (req.files && req.files.design_image) {
-                const image = req.files.design_image;
+            if (req.files && (req.files.design_image || req.files['design_image[]'])) {
+                const images = req.files.design_image || req.files['design_image[]'];
+                const filesToProcess = Array.isArray(images) ? images : [images];
                 const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
                 const subDir = event_type === 'monday_market' ? 'market'
@@ -127,16 +142,32 @@ const eventController = {
                 const uploadDir = path.join(uploadBase, subDir);
                 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-                const fileName = `${Date.now()}-${image.name}`;
-                const uploadPath = path.join(uploadDir, fileName);
-                const dbPath = `uploads/${subDir}/${fileName}`;
+                const dbPaths = [];
+                for (const file of filesToProcess) {
+                    const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name}`;
+                    const uploadPath = path.join(uploadDir, fileName);
+                    const dbPath = `uploads/${subDir}/${fileName}`;
 
-                await sharp(image.data)
-                    .jpeg({ quality: 90 })
-                    .toFile(uploadPath);
+                    await sharp(file.data)
+                        .jpeg({ quality: 90 })
+                        .toFile(uploadPath);
+
+                    dbPaths.push(dbPath);
+                }
 
                 updateQuery += `, design_image_path = ?`;
-                queryParams.push(dbPath);
+                queryParams.push(dbPaths[0]);
+
+                // Clear old images for this event and add new ones (Overwrite approach)
+                await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
+                for (let i = 0; i < dbPaths.length; i++) {
+                    await db.run(
+                        'INSERT INTO event_images (event_id, image_path, sort_order) VALUES (?, ?, ?)',
+                        [id, dbPaths[i], i]
+                    );
+                }
+                // Reset index if images changed
+                updateQuery += `, current_image_index = 0`;
             }
 
             updateQuery += ` WHERE id = ?`;

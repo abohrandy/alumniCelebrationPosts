@@ -60,8 +60,20 @@ async function initDb() {
                 schedule_type TEXT DEFAULT 'single_date' CHECK(schedule_type IN ('single_date', 'weekly', 'interval')),
                 repeat_interval_days INTEGER,
                 post_time TEXT DEFAULT '06:00',
+                current_image_index INTEGER DEFAULT 0,
                 created_by INTEGER REFERENCES users(id),
                 status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // ── Event Images table (for albums/rotation) ──
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS event_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                image_path TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -122,6 +134,20 @@ async function initDb() {
         if (!columnNames.includes('created_by')) {
             await db.exec("ALTER TABLE events ADD COLUMN created_by INTEGER");
         }
+        if (!columnNames.includes('current_image_index')) {
+            await db.exec("ALTER TABLE events ADD COLUMN current_image_index INTEGER DEFAULT 0");
+        }
+
+        // ── Always ensure event_images table exists ──
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS event_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                image_path TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
         // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch ──
         // If we detect the old capitalized constraints, we must recreate the table
@@ -147,6 +173,7 @@ async function initDb() {
                     schedule_type TEXT DEFAULT 'single_date' CHECK(schedule_type IN ('single_date', 'weekly', 'interval')),
                     repeat_interval_days INTEGER,
                     post_time TEXT DEFAULT '06:00',
+                    current_image_index INTEGER DEFAULT 0,
                     created_by INTEGER REFERENCES users(id),
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -159,7 +186,7 @@ async function initDb() {
                     id, title, first_name, second_name, phone_number, 
                     event_type, event_date, design_image_path, caption, 
                     message_template, schedule_type, repeat_interval_days, 
-                    post_time, created_by, status, created_at
+                    post_time, current_image_index, created_by, status, created_at
                 )
                 SELECT 
                     id, title, first_name, second_name, phone_number,
@@ -170,7 +197,7 @@ async function initDb() {
                     END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, created_by, status, created_at
+                    post_time, 0, created_by, status, created_at
                 FROM events
             `);
 
