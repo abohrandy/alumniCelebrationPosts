@@ -7,7 +7,9 @@ const { emitStats } = require('../services/socket');
 const celebrantController = {
     async create(req, res) {
         try {
-            const { first_name, second_name, phone_number, event_type, event_date, message_template } = req.body;
+            const { full_name, phone_number, event_type, event_date, message_template } = req.body;
+            const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
+
             if (!req.files || !req.files.design_image) {
                 return res.status(400).json({ error: 'No image uploaded.' });
             }
@@ -19,36 +21,21 @@ const celebrantController = {
 
             const fileName = `${Date.now()}-${image.name}`;
             const uploadPath = path.join(uploadDir, fileName);
-
-            // Path to save to DB (relative to /uploads route)
             const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
 
-            // Aspect Ratio Validation & Compression
-            const metadata = await sharp(image.data).metadata();
-            const ratio = metadata.width / metadata.height;
-            const targetRatio = 1080 / 1350; // 0.8
-
-            // Check if roughly 4:5
-            if (Math.abs(ratio - targetRatio) > 0.1) {
-                // We'll still save it but return a warning if the UI didn't catch it
-                console.warn('Image ratio is not 4:5 optimized for WhatsApp.');
-            }
-
-            // Note: We removed forceful resizing so the image is not cropped.
-            // We just compress it to 90% quality.
             await sharp(image.data)
                 .jpeg({ quality: 90 })
                 .toFile(uploadPath);
 
             const db = await initDb();
             const result = await db.run(
-                `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date, design_image_path, message_template)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [first_name, second_name, phone_number, event_type, event_date, dbPath, message_template]
+                `INSERT INTO events (full_name, phone_number, event_type, event_date, design_image_path, message_template)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [fullName || null, phone_number, event_type, event_date, dbPath, message_template]
             );
 
             emitStats({ action: 'create' });
-            await logActivity(null, 'celebrant_added', result.lastID, `Added ${event_type} for ${first_name} ${second_name}`, { first_name, second_name, event_type, event_date });
+            await logActivity(null, 'celebrant_added', result.lastID, `Added ${event_type} for ${fullName}`, { full_name: fullName, event_type, event_date });
             res.status(201).json({ message: 'Celebrant created successfully', id: result.lastID });
         } catch (error) {
             console.error('Error creating celebrant:', error);
@@ -59,14 +46,15 @@ const celebrantController = {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const { first_name, second_name, phone_number, event_type, event_date, message_template } = req.body;
+            const { full_name, phone_number, event_type, event_date, message_template } = req.body;
+            const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
             const db = await initDb();
 
             let updateQuery = `
                 UPDATE events 
-                SET first_name = ?, second_name = ?, phone_number = ?, event_type = ?, event_date = ?, message_template = ?
+                SET full_name = ?, phone_number = ?, event_type = ?, event_date = ?, message_template = ?
             `;
-            let queryParams = [first_name, second_name, phone_number, event_type, event_date, message_template || null];
+            let queryParams = [fullName || null, phone_number, event_type, event_date, message_template || null];
 
             if (req.files && req.files.design_image) {
                 const image = req.files.design_image;
@@ -76,11 +64,8 @@ const celebrantController = {
 
                 const fileName = `${Date.now()}-${image.name}`;
                 const uploadPath = path.join(uploadDir, fileName);
-
-                // Path to save to DB
                 const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
 
-                // Image processing
                 await sharp(image.data)
                     .jpeg({ quality: 90 })
                     .toFile(uploadPath);
@@ -94,7 +79,7 @@ const celebrantController = {
 
             await db.run(updateQuery, queryParams);
             emitStats({ action: 'update' });
-            await logActivity(null, 'celebrant_updated', parseInt(id), `Updated celebrant ID ${id}`, { first_name, second_name, event_type, event_date });
+            await logActivity(null, 'celebrant_updated', parseInt(id), `Updated celebrant ID ${id}`, { full_name: fullName, event_type, event_date });
             res.json({ message: 'Celebrant updated successfully.' });
         } catch (error) {
             console.error('Error updating celebrant:', error);

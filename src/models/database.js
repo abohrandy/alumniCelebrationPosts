@@ -69,9 +69,7 @@ async function initDb() {
         await db.exec(`
             CREATE TABLE IF NOT EXISTS events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                first_name TEXT,
-                second_name TEXT,
+                full_name TEXT,
                 phone_number TEXT,
                 event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement')),
                 event_date TEXT,
@@ -115,12 +113,11 @@ async function initDb() {
                     }
 
                     await db.run(
-                        `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date,
+                        `INSERT INTO events (full_name, phone_number, event_type, event_date,
                          design_image_path, message_template, schedule_type, status, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
+                         VALUES (?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
                         [
-                            c.first_name || null,
-                            c.second_name || null,
+                            ((c.first_name || '') + ' ' + (c.second_name || '')).trim() || null,
                             c.phone_number || null,
                             eventType,
                             c.event_date || null,
@@ -159,9 +156,19 @@ async function initDb() {
         if (!columnNames.includes('current_image_index')) {
             await db.exec("ALTER TABLE events ADD COLUMN current_image_index INTEGER DEFAULT 0");
         }
-        if (!columnNames.includes('expiry_date')) {
-            await db.exec("ALTER TABLE events ADD COLUMN expiry_date TEXT");
+        if (!columnNames.includes('full_name')) {
+            await db.exec("ALTER TABLE events ADD COLUMN full_name TEXT");
+            if (columnNames.includes('first_name')) {
+                await db.exec("UPDATE events SET full_name = TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, ''))");
+            }
         }
+        // Remove first_name and second_name if full_name exists and they are no longer needed
+        if (columnNames.includes('first_name') && columnNames.includes('full_name')) {
+            // SQLite does not support dropping columns directly without recreating the table.
+            // This is handled by the table recreation logic below if event_type constraints are old.
+            // If not, these columns will remain but won't be used.
+        }
+
 
         // ── Always ensure event_images table exists ──
         await db.exec(`
@@ -174,11 +181,11 @@ async function initDb() {
             )
         `);
 
-        // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch ──
+        // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch and schema changes ──
         // If we detect the old capitalized constraints, we must recreate the table
         const tableSchema = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='events'");
-        if (tableSchema && tableSchema.sql.includes("'Birthday'")) {
-            console.log('Old capitalized constraints detected. Recreating events table with new constraints...');
+        if (tableSchema && (tableSchema.sql.includes("'Birthday'") || columnNames.includes('first_name'))) {
+            console.log('Old capitalized constraints or first_name/second_name columns detected. Recreating events table with new schema...');
             await db.exec('PRAGMA foreign_keys = OFF');
             await db.exec('BEGIN TRANSACTION');
 
@@ -186,9 +193,7 @@ async function initDb() {
             await db.exec(`
                 CREATE TABLE events_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT,
-                    first_name TEXT,
-                    second_name TEXT,
+                    full_name TEXT,
                     phone_number TEXT,
                     event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement')),
                     event_date TEXT,
@@ -201,21 +206,24 @@ async function initDb() {
                     current_image_index INTEGER DEFAULT 0,
                     created_by INTEGER REFERENCES users(id),
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                    expiry_date TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
 
-            // 2. Copy data while normalizing event_type to lowercase
+            // 2. Copy data while normalizing event_type to lowercase and combining names
             await db.exec(`
                 INSERT INTO events_new (
-                    id, title, first_name, second_name, phone_number, 
-                    event_type, event_date, design_image_path, caption, 
-                    message_template, schedule_type, repeat_interval_days, 
-                    post_time, current_image_index, created_by, status, created_at
+                    id, full_name, phone_number,
+                    event_type, event_date, design_image_path, caption,
+                    message_template, schedule_type, repeat_interval_days,
+                    post_time, current_image_index, created_by, status, expiry_date, created_at
                 )
-                SELECT 
-                    id, title, first_name, second_name, phone_number,
-                    CASE 
+                SELECT
+                    id,
+                    TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, '')),
+                    phone_number,
+                    CASE
                         WHEN event_type = 'Birthday' THEN 'birthday'
                         WHEN event_type = 'Wedding Anniversary' THEN 'wedding_anniversary'
                         ELSE LOWER(event_type)
@@ -255,12 +263,11 @@ async function initDb() {
                         eventType = 'wedding_anniversary';
                     }
                     await db.run(
-                        `INSERT INTO events (first_name, second_name, phone_number, event_type, event_date,
+                        `INSERT INTO events (full_name, phone_number, event_type, event_date,
                          design_image_path, message_template, schedule_type, status, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
+                         VALUES (?, ?, ?, ?, ?, ?, 'single_date', ?, ?)`,
                         [
-                            c.first_name || null,
-                            c.second_name || null,
+                            ((c.first_name || '') + ' ' + (c.second_name || '')).trim() || null,
                             c.phone_number || null,
                             eventType,
                             c.event_date || null,

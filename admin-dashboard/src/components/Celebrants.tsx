@@ -4,8 +4,7 @@ import axios from 'axios';
 
 interface Celebrant {
     id: number;
-    first_name: string;
-    second_name: string;
+    full_name: string;
     phone_number?: string;
     event_type: string;
     event_date: string;
@@ -19,8 +18,7 @@ const Celebrants = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState({
-        first_name: '',
-        second_name: '',
+        full_name: '',
         phone_number: '',
         event_type: 'birthday',
         event_date: '',
@@ -59,8 +57,7 @@ const Celebrants = () => {
 
     const handleEdit = (c: Celebrant) => {
         setFormData({
-            first_name: c.first_name,
-            second_name: c.second_name,
+            full_name: c.full_name,
             phone_number: c.phone_number || '',
             event_type: c.event_type,
             event_date: c.event_date,
@@ -98,8 +95,7 @@ const Celebrants = () => {
 
     const resetForm = () => {
         setFormData({
-            first_name: '',
-            second_name: '',
+            full_name: '',
             phone_number: '',
             event_type: 'birthday',
             event_date: '',
@@ -134,7 +130,7 @@ const Celebrants = () => {
     };
 
     const filtered = celebrants.filter((c: Celebrant) =>
-        `${c.first_name} ${c.second_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+        (c.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -173,7 +169,7 @@ const Celebrants = () => {
                                 )}
                             </div>
                             <div className="flex-1">
-                                <h4 className="font-bold text-white text-lg">{c.first_name} {c.second_name}</h4>
+                                <h4 className="font-bold text-white text-lg">{c.full_name}</h4>
                                 <div className="flex items-center gap-2 text-primary font-medium text-xs mt-1">
                                     {c.event_type === 'birthday' ? <Gift size={14} /> : <Calendar size={14} />}
                                     {c.event_type === 'birthday' ? 'Birthday' : 'Wedding Anniversary'}
@@ -209,14 +205,10 @@ const Celebrants = () => {
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-400">First Name</label>
+                                    <label className="text-sm font-medium text-slate-400">Full Name</label>
                                     <input required type="text" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
-                                        value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-400">Second Name</label>
-                                    <input required type="text" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
-                                        value={formData.second_name} onChange={e => setFormData({ ...formData, second_name: e.target.value })} />
+                                        placeholder="Enter person's name..."
+                                        value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-400">Event Type</label>

@@ -5,8 +5,7 @@ import axios from 'axios';
 interface EventItem {
     id: number;
     title: string | null;
-    first_name: string | null;
-    second_name: string | null;
+    full_name: string | null;
     phone_number: string | null;
     event_type: string;
     event_date: string | null;
@@ -51,8 +50,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
     // Form state
     const [eventType, setEventType] = useState('birthday');
-    const [firstName, setFirstName] = useState('');
-    const [secondName, setSecondName] = useState('');
+    const [fullName, setFullName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [title, setTitle] = useState('');
     const [caption, setCaption] = useState('');
@@ -82,8 +80,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
     const resetForm = () => {
         setEventType('birthday');
-        setFirstName('');
-        setSecondName('');
+        setFullName('');
         setPhoneNumber('');
         setTitle('');
         setCaption('');
@@ -105,8 +102,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const openEditForm = (event: EventItem) => {
         setEditingId(event.id);
         setEventType(event.event_type);
-        setFirstName(event.first_name || '');
-        setSecondName(event.second_name || '');
+        setFullName(event.full_name || '');
         setPhoneNumber(event.phone_number || '');
         setTitle(event.title || '');
         setCaption(event.caption || event.message_template || '');
@@ -137,8 +133,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
             formData.append('event_type', eventType);
 
             if (eventType === 'birthday' || eventType === 'wedding_anniversary') {
-                formData.append('first_name', firstName);
-                formData.append('second_name', secondName);
+                formData.append('full_name', fullName);
                 formData.append('phone_number', phoneNumber);
                 formData.append('event_date', eventDate);
                 formData.append('schedule_type', 'single_date');
@@ -216,8 +211,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
             : events.filter(e => e.event_type === filterType);
 
     const getDisplayName = (event: EventItem) => {
-        if (event.first_name) return `${event.first_name} ${event.second_name || ''}`.trim();
-        return event.title || event.event_type;
+        return event.full_name || event.title || event.event_type;
     };
 
     if (loading) {
@@ -291,17 +285,11 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             {/* Dynamic fields based on type */}
                             {isPerson ? (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>First Name</label>
-                                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Second Name</label>
-                                            <input type="text" value={secondName} onChange={(e) => setSecondName(e.target.value)}
-                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
-                                        </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name</label>
+                                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                                            placeholder="Enter person's name..."
+                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Phone Number</label>

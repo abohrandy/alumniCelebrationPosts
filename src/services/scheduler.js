@@ -13,7 +13,7 @@ async function scheduleDailyPosts() {
     cron.schedule('0 1 * * *', async () => {
         console.log('Running daily post scheduler check...');
         await processTodayEvents();
-    });
+    }, { timezone: "Africa/Lagos" });
 
     // ── Monday Market ──
     // Every Monday at 5:00 AM
@@ -61,7 +61,7 @@ async function processTodayEvents() {
             const cronTime = `${actualMin} ${actualHour} * * *`;
 
             cron.schedule(cronTime, async () => {
-                const displayName = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+                const displayName = event.full_name || event.title || event.event_type;
                 console.log(`Executing post for ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
                 await sendPost(event);
             }, {
@@ -69,7 +69,7 @@ async function processTodayEvents() {
                 timezone: "Africa/Lagos"
             });
 
-            const displayName = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+            const displayName = event.full_name || event.title || event.event_type;
             console.log(`Scheduled: ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
         });
 
@@ -200,7 +200,7 @@ async function sendPost(event) {
                     ? (settings?.anniversary_template || '💍 Happy Wedding Anniversary {name}!')
                     : (settings?.birthday_template || '🎉 Happy Birthday {name}!');
             }
-            const name = `${event.first_name || ''} ${event.second_name || ''}`.trim();
+            const name = event.full_name || '';
             const phone = event.phone_number || '';
             caption = caption.replace(/{name}/g, name).replace(/{phone}/g, phone);
         } else {
@@ -249,9 +249,7 @@ async function sendPost(event) {
             }
         }
 
-        const displayName = event.first_name
-            ? `${event.first_name} ${event.second_name || ''}`.trim()
-            : event.title || event.event_type;
+        const displayName = event.full_name || event.title || event.event_type;
 
         const logMsg = `Post sent for ${displayName} (${event.event_type})`;
         console.log(logMsg);
@@ -265,9 +263,7 @@ async function sendPost(event) {
         });
 
     } catch (error) {
-        const displayName = event.first_name
-            ? `${event.first_name || ''}`.trim()
-            : event.title || event.event_type;
+        const displayName = event.full_name || event.title || event.event_type;
         const errMsg = `Failed to send post for ${displayName}: ${error.message}`;
         console.error(errMsg);
         emitLog({ type: 'error', message: errMsg, timestamp: new Date().toISOString() });

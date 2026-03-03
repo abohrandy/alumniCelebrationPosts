@@ -30,8 +30,11 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     wget \
     xdg-utils \
+    tzdata \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Africa/Lagos
 
 # Tell Puppeteer to skip downloading Chrome and use the installed one
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

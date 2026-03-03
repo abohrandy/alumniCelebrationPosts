@@ -5,8 +5,7 @@ import axios from 'axios';
 interface EventItem {
     id: number;
     title: string | null;
-    first_name: string | null;
-    second_name: string | null;
+    full_name: string | null;
     event_type: string;
     event_date: string | null;
     status: string;
@@ -57,8 +56,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
     ];
 
     const getName = (e: EventItem) => {
-        if (e.first_name) return `${e.first_name} ${e.second_name || ''}`.trim();
-        return e.title || e.event_type;
+        return e.full_name || e.title || e.event_type;
     };
 
     const upcomingEvents = events

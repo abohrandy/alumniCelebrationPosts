@@ -9,10 +9,13 @@ const eventController = {
         try {
             const {
                 event_type, title,
-                first_name, second_name, phone_number,
+                full_name, phone_number,
                 caption, message_template,
                 event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             } = req.body;
+
+            // Backward compatibility
+            const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
 
             if (!req.files || (!req.files.design_image && !req.files['design_image[]'])) {
                 return res.status(400).json({ error: 'No image uploaded.' });
@@ -52,23 +55,22 @@ const eventController = {
             const userId = req.user ? req.user.id : null;
 
             const result = await db.run(
-                `INSERT INTO events (title, first_name, second_name, phone_number, event_type, event_date, 
+                `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
                  design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, created_by)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
-                    first_name || null,
-                    second_name || null,
+                    fullName || null,
                     phone_number || null,
                     event_type,
                     event_date || null,
-                    dbPaths[0], // First image as main path
+                    dbPaths[0],
                     caption || null,
                     message_template || null,
                     schedule_type || 'single_date',
                     repeat_interval_days || null,
                     post_time || '06:00',
-                    0, // initial index
+                    0,
                     expiry_date || null,
                     userId
                 ]
@@ -76,7 +78,6 @@ const eventController = {
 
             const eventId = result.lastID;
 
-            // Insert all images into event_images table
             for (let i = 0; i < dbPaths.length; i++) {
                 await db.run(
                     'INSERT INTO event_images (event_id, image_path, sort_order) VALUES (?, ?, ?)',
@@ -86,12 +87,10 @@ const eventController = {
 
             emitStats({ action: 'create' });
 
-            const displayName = first_name
-                ? `${first_name} ${second_name || ''}`
-                : title || event_type;
+            const displayName = fullName || title || event_type;
 
             await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`, {
-                event_type, title, first_name, second_name, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             });
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
@@ -105,23 +104,24 @@ const eventController = {
             const { id } = req.params;
             const {
                 event_type, title,
-                first_name, second_name, phone_number,
+                full_name, phone_number,
                 caption, message_template,
                 event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             } = req.body;
+
+            const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
 
             const db = await initDb();
 
             let updateQuery = `
                 UPDATE events 
-                SET title = ?, first_name = ?, second_name = ?, phone_number = ?,
+                SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
                     schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?
             `;
             let queryParams = [
                 title || null,
-                first_name || null,
-                second_name || null,
+                fullName || null,
                 phone_number || null,
                 event_type,
                 event_date || null,
@@ -182,7 +182,7 @@ const eventController = {
 
             const userId = req.user ? req.user.id : null;
             await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`, {
-                event_type, title, first_name, second_name, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
             });
             res.json({ message: 'Event updated successfully.' });
         } catch (error) {
