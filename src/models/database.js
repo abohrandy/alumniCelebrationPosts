@@ -162,6 +162,9 @@ async function initDb() {
                 await db.exec("UPDATE events SET full_name = TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, ''))");
             }
         }
+        if (!columnNames.includes('expiry_date')) {
+            await db.exec("ALTER TABLE events ADD COLUMN expiry_date TEXT");
+        }
         // Remove first_name and second_name if full_name exists and they are no longer needed
         if (columnNames.includes('first_name') && columnNames.includes('full_name')) {
             // SQLite does not support dropping columns directly without recreating the table.
@@ -221,7 +224,7 @@ async function initDb() {
                 )
                 SELECT
                     id,
-                    TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, '')),
+                    IFNULL(full_name, TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, ''))),
                     phone_number,
                     CASE
                         WHEN event_type = 'Birthday' THEN 'birthday'
@@ -230,7 +233,7 @@ async function initDb() {
                     END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, 0, created_by, status, created_at
+                    post_time, 0, created_by, status, expiry_date, created_at
                 FROM events
             `);
 
