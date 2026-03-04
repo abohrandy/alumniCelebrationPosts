@@ -10,6 +10,7 @@ interface EventItem {
     event_date: string | null;
     status: string;
     schedule_type: string;
+    repeat_interval_days: number | null;
     created_at: string;
 }
 
@@ -60,8 +61,6 @@ function Dashboard({ onNavigate }: DashboardProps) {
     };
 
     const getNextOccurrenceString = (e: EventItem) => {
-        if (!e.event_date) return null;
-        // Use local timezone string (YYYY-MM-DD)
         const now = new Date();
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -69,6 +68,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
         const todayStr = `${yyyy}-${mm}-${dd}`;
 
         if (e.event_type === 'birthday' || e.event_type === 'wedding_anniversary') {
+            if (!e.event_date) return null;
             const origMmDd = e.event_date.substring(5); // gets MM-DD
             if (!origMmDd || origMmDd.length !== 5) return e.event_date >= todayStr ? e.event_date : null;
 
@@ -80,7 +80,33 @@ function Dashboard({ onNavigate }: DashboardProps) {
             }
         }
 
-        // For announcements or single date events, only show if it's today or later
+        if (e.schedule_type === 'interval' && e.repeat_interval_days && e.created_at) {
+            const createdDate = new Date(e.created_at);
+            let nextDate = new Date(createdDate);
+            const todayDate = new Date(todayStr); // normalized to 00:00:00
+            while (nextDate < todayDate) {
+                nextDate.setDate(nextDate.getDate() + e.repeat_interval_days);
+            }
+            const nYyyy = nextDate.getFullYear();
+            const nMm = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const nDd = String(nextDate.getDate()).padStart(2, '0');
+            return `${nYyyy}-${nMm}-${nDd}`;
+        }
+
+        if (e.schedule_type === 'weekly') {
+            let nextDate = new Date(todayStr);
+            const day = nextDate.getDay();
+            const diff = (day <= 1 ? 1 - day : 8 - day); // Until next Monday
+            nextDate.setDate(nextDate.getDate() + diff);
+            const nYyyy = nextDate.getFullYear();
+            const nMm = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const nDd = String(nextDate.getDate()).padStart(2, '0');
+            return `${nYyyy}-${nMm}-${nDd}`;
+        }
+
+        if (!e.event_date) return null;
+
+        // For single date events, only show if it's today or later
         return e.event_date >= todayStr ? e.event_date : null;
     };
 
