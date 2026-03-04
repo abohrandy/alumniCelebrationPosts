@@ -59,9 +59,35 @@ function Dashboard({ onNavigate }: DashboardProps) {
         return e.full_name || e.title || e.event_type;
     };
 
+    const getNextOccurrenceString = (e: EventItem) => {
+        if (!e.event_date) return null;
+        // Use local timezone string (YYYY-MM-DD)
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        if (e.event_type === 'birthday' || e.event_type === 'wedding_anniversary') {
+            const origMmDd = e.event_date.substring(5); // gets MM-DD
+            if (!origMmDd || origMmDd.length !== 5) return e.event_date >= todayStr ? e.event_date : null;
+
+            const thisYearDate = `${yyyy}-${origMmDd}`;
+            if (thisYearDate >= todayStr) {
+                return thisYearDate;
+            } else {
+                return `${yyyy + 1}-${origMmDd}`;
+            }
+        }
+
+        // For announcements or single date events, only show if it's today or later
+        return e.event_date >= todayStr ? e.event_date : null;
+    };
+
     const upcomingEvents = events
-        .filter(e => e.event_date && e.status === 'active')
-        .sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
+        .map(e => ({ ...e, nextDate: getNextOccurrenceString(e) }))
+        .filter(e => e.nextDate !== null && e.status === 'active')
+        .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!))
         .slice(0, 8);
 
     if (loading) return <div style={{ color: 'var(--text-muted)' }} className="text-center py-12">Loading...</div>;
@@ -139,7 +165,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
                                     </span>
                                     <span className="font-medium truncate text-sm" style={{ color: 'var(--text-primary)' }}>{getName(event)}</span>
                                 </div>
-                                <span className="text-[10px] lg:text-xs flex-shrink-0 ml-2" style={{ color: 'var(--text-muted)' }}>{event.event_date}</span>
+                                <span className="text-[10px] lg:text-xs flex-shrink-0 ml-2" style={{ color: 'var(--text-muted)' }}>{event.nextDate}</span>
                             </div>
                         ))}
                     </div>
