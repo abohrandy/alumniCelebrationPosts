@@ -57,7 +57,7 @@ const eventController = {
             const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
                  design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
