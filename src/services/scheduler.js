@@ -8,12 +8,15 @@ const { logActivity } = require('../models/database');
 const instagram = require('./instagram');
 
 async function scheduleDailyPosts() {
-    // ── Birthday & Wedding Anniversary ──
-    // Run every day at 1:00 AM to prepare the queue for 6:00 AM
-    cron.schedule('0 1 * * *', async () => {
-        console.log('Running daily post scheduler check...');
+    // Run birthday check every 30 minutes to catch up and handle staggered times
+    cron.schedule('*/30 * * * *', async () => {
+        console.log('Running periodic post scheduler check...');
         await processTodayEvents();
     }, { timezone: "Africa/Lagos" });
+
+    // Initial check on startup
+    console.log('Running initial post scheduler check on startup...');
+    await processTodayEvents();
 
     // ── Monday Market ──
     // Every Monday at 5:00 AM
@@ -35,7 +38,10 @@ async function scheduleDailyPosts() {
 async function processTodayEvents() {
     try {
         const db = await initDb();
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
 
         const events = await db.all(
             `SELECT * FROM events 
@@ -43,35 +49,47 @@ async function processTodayEvents() {
              AND event_date LIKE ? 
              AND status = 'active' 
              ORDER BY created_at ASC`,
-            [`%${today.substring(5)}`] // Matches MM-DD across years
+            [`%${todayStr.substring(5)}`] // Matches MM-DD across years
         );
 
         if (events.length === 0) {
-            console.log('No birthday/anniversary events for today:', today);
+            console.log('No birthday/anniversary events for today:', todayStr);
             return;
         }
 
-        console.log(`Found ${events.length} events for today. Scheduling posts...`);
+        console.log(`Found ${events.length} potential events for today. Checking schedule...`);
 
-        events.forEach((event, index) => {
+        for (let index = 0; index < events.length; index++) {
+            const event = events[index];
             const postHour = 6;
             const postMinute = index * 10;
-            const actualHour = postHour + Math.floor(postMinute / 60);
-            const actualMin = postMinute % 60;
-            const cronTime = `${actualMin} ${actualHour} * * *`;
-
-            cron.schedule(cronTime, async () => {
-                const displayName = event.full_name || event.title || event.event_type;
-                console.log(`Executing post for ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
-                await sendPost(event);
-            }, {
-                scheduled: true,
-                timezone: "Africa/Lagos"
-            });
+            const targetHour = postHour + Math.floor(postMinute / 60);
+            const targetMin = postMinute % 60;
 
             const displayName = event.full_name || event.title || event.event_type;
-            console.log(`Scheduled: ${displayName} at ${actualHour}:${String(actualMin).padStart(2, '0')}`);
-        });
+
+            // Check if it's time to post
+            if (currentHour > targetHour || (currentHour === targetHour && currentMin >= targetMin)) {
+                // Check if already posted today
+                const alreadyPosted = await db.get(
+                    `SELECT id FROM activity_logs 
+                     WHERE event_id = ? 
+                     AND action = 'post_sent' 
+                     AND date(created_at) = date('now', 'localtime')`,
+                    [event.id]
+                );
+
+                if (alreadyPosted) {
+                    console.log(`Post for ${displayName} already sent today. Skipping.`);
+                    continue;
+                }
+
+                console.log(`Executing scheduled post for ${displayName} (target time was ${targetHour}:${String(targetMin).padStart(2, '0')})`);
+                await sendPost(event);
+            } else {
+                console.log(`Staggered post for ${displayName} scheduled for ${targetHour}:${String(targetMin).padStart(2, '0')}. Waiting...`);
+            }
+        }
 
     } catch (error) {
         console.error('Error processing today\'s events:', error);
