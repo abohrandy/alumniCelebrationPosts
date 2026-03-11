@@ -80,27 +80,6 @@ class WhatsAppClient {
             console.log('Client is ready!');
             emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
-
-            // Optimize memory by blocking unnecessary resources (defensive try-catch)
-            try {
-                const page = this.client.pupPage;
-                if (page) {
-                    await page.setRequestInterception(true);
-                    page.on('request', (request) => {
-                        const resourceType = request.resourceType();
-                        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-                            request.abort();
-                        } else {
-                            request.continue();
-                        }
-                    });
-                    console.log('Resource interception enabled for memory optimization.');
-                } else {
-                    console.log('Skipping resource interception: pupPage not found.');
-                }
-            } catch (optErr) {
-                console.warn('Memory optimization (resource interception) failed to initialize:', optErr.message);
-            }
         });
 
         this.client.on('authenticated', () => {
