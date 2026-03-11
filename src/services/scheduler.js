@@ -280,6 +280,12 @@ async function sendPost(event) {
             caption: caption
         });
 
+        // Explicitly trigger garbage collection to free up memory (if enabled)
+        if (global.gc) {
+            console.log('Running explicit GC after post success...');
+            global.gc();
+        }
+
     } catch (error) {
         const displayName = event.full_name || event.title || event.event_type;
         const errMsg = `Failed to send post for ${displayName}: ${error.message}`;

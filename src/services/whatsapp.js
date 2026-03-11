@@ -18,6 +18,8 @@ class WhatsAppClient {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
+                '--no-zygote',
+                '--disable-extensions',
                 '--remote-allow-origins=*'
             ]
         };
@@ -73,12 +75,27 @@ class WhatsAppClient {
             emitStatus(this.getStatus());
         });
 
-        this.client.on('ready', () => {
+        this.client.on('ready', async () => {
             this.status = 'CONNECTED';
             this.qrText = '';
             console.log('Client is ready!');
             emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
+
+            // Optimize memory by blocking unnecessary resources
+            const page = await this.client.puppeteer.page;
+            if (page) {
+                await page.setRequestInterception(true);
+                page.on('request', (request) => {
+                    const resourceType = request.resourceType();
+                    if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+                        request.abort();
+                    } else {
+                        request.continue();
+                    }
+                });
+                console.log('Resource interception enabled for memory optimization.');
+            }
         });
 
         this.client.on('authenticated', () => {
@@ -101,6 +118,14 @@ class WhatsAppClient {
             emitStatus(this.getStatus());
             this.client.initialize(); // Try to reconnect
         });
+
+        // Trigger GC once ready to clean up initialization overhead
+        if (global.gc) {
+            setTimeout(() => {
+                console.log('Running GC after WhatsApp initialization...');
+                global.gc();
+            }, 5000);
+        }
 
         return this.client.initialize();
     }
@@ -154,6 +179,8 @@ class WhatsAppClient {
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
+                    '--no-zygote',
+                    '--disable-extensions',
                     '--remote-allow-origins=*'
                 ]
             };
