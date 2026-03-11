@@ -18,7 +18,6 @@ class WhatsAppClient {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--no-zygote',
                 '--disable-extensions',
                 '--remote-allow-origins=*'
             ]
@@ -82,19 +81,25 @@ class WhatsAppClient {
             emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
 
-            // Optimize memory by blocking unnecessary resources
-            const page = await this.client.puppeteer.page;
-            if (page) {
-                await page.setRequestInterception(true);
-                page.on('request', (request) => {
-                    const resourceType = request.resourceType();
-                    if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-                        request.abort();
-                    } else {
-                        request.continue();
-                    }
-                });
-                console.log('Resource interception enabled for memory optimization.');
+            // Optimize memory by blocking unnecessary resources (defensive try-catch)
+            try {
+                const page = this.client.pupPage;
+                if (page) {
+                    await page.setRequestInterception(true);
+                    page.on('request', (request) => {
+                        const resourceType = request.resourceType();
+                        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+                            request.abort();
+                        } else {
+                            request.continue();
+                        }
+                    });
+                    console.log('Resource interception enabled for memory optimization.');
+                } else {
+                    console.log('Skipping resource interception: pupPage not found.');
+                }
+            } catch (optErr) {
+                console.warn('Memory optimization (resource interception) failed to initialize:', optErr.message);
             }
         });
 
@@ -179,7 +184,6 @@ class WhatsAppClient {
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
-                    '--no-zygote',
                     '--disable-extensions',
                     '--remote-allow-origins=*'
                 ]
