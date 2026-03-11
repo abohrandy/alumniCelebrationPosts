@@ -27,6 +27,8 @@ const Celebrants = () => {
     });
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [ratioWarning, setRatioWarning] = useState(false);
+    const [sortBy, setSortBy] = useState('upcoming');
+
 
 
     useEffect(() => {
@@ -129,9 +131,36 @@ const Celebrants = () => {
         }
     };
 
-    const filtered = celebrants.filter((c: Celebrant) =>
-        (c.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = celebrants
+        .filter((c: Celebrant) =>
+            (c.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => {
+            if (sortBy === 'name') {
+                return a.full_name.localeCompare(b.full_name);
+            } else if (sortBy === 'type') {
+                return a.event_type.localeCompare(b.event_type);
+            } else if (sortBy === 'upcoming') {
+                // Sorting by month and day, ignoring year for consistency (birthdays/anniversaries)
+                const getMonthDay = (dateStr: string) => {
+                    const date = new Date(dateStr);
+                    // Use a fixed year to compare only month and day
+                    return new Date(2000, date.getMonth(), date.getDate()).getTime();
+                };
+                const nowRaw = new Date();
+                const now = new Date(2000, nowRaw.getMonth(), nowRaw.getDate()).getTime();
+                
+                const valA = getMonthDay(a.event_date);
+                const valB = getMonthDay(b.event_date);
+                
+                // If the date has already passed this year, it's "further" away than one coming up next year
+                const diffA = valA < now ? valA + 400 * 24 * 60 * 60 * 1000 : valA; 
+                const diffB = valB < now ? valB + 400 * 24 * 60 * 60 * 1000 : valB;
+                
+                return diffA - diffB;
+            }
+            return 0;
+        });
 
     return (
         <div className="space-y-6">
@@ -145,6 +174,18 @@ const Celebrants = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <select
+                        className="flex-1 md:w-48 p-2.5 bg-slate-900/30 border border-slate-700/50 rounded-lg text-slate-300 outline-none focus:border-primary transition-all"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                    >
+                        <option value="upcoming">Upcoming First</option>
+                        <option value="name">Name (A-Z)</option>
+                        <option value="type">Event Type</option>
+                    </select>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}

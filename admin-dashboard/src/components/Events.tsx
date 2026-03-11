@@ -47,6 +47,9 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [filterType, setFilterType] = useState(initialFilter);
+    const [sortBy, setBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
 
     // Form state
     const [eventType, setEventType] = useState('birthday');
@@ -204,11 +207,28 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
     const isPerson = eventType === 'birthday' || eventType === 'wedding_anniversary';
 
-    const filteredEvents = filterType === 'all'
+    const filteredEvents = (filterType === 'all'
         ? events
         : filterType === 'recurring'
             ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'announcement')
-            : events.filter(e => e.event_type === filterType);
+            : events.filter(e => e.event_type === filterType))
+        .sort((a, b) => {
+            let comparison = 0;
+            if (sortBy === 'created_at') {
+                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            } else if (sortBy === 'event_date') {
+                const dateA = a.event_date ? new Date(a.event_date).getTime() : 0;
+                const dateB = b.event_date ? new Date(b.event_date).getTime() : 0;
+                comparison = dateA - dateB;
+            } else if (sortBy === 'name') {
+                const nameA = (a.full_name || a.title || '').toLowerCase();
+                const nameB = (b.full_name || b.title || '').toLowerCase();
+                comparison = nameA.localeCompare(nameB);
+            } else if (sortBy === 'status') {
+                comparison = a.status.localeCompare(b.status);
+            }
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
 
     const getDisplayName = (event: EventItem) => {
         return event.full_name || event.title || event.event_type;
@@ -235,6 +255,29 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                     <option value="announcement">Announcements</option>
                     <option value="recurring">Recurring (Market/Announce)</option>
                 </select>
+
+                <div className="flex items-center gap-2">
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setBy(e.target.value)}
+                        className="text-sm rounded-lg px-3 py-2"
+                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    >
+                        <option value="created_at">Sort by: Date Created</option>
+                        <option value="event_date">Sort by: Event Date</option>
+                        <option value="name">Sort by: Name/Title</option>
+                        <option value="status">Sort by: Status</option>
+                    </select>
+
+                    <button
+                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        className="p-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                    >
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                    </button>
+                </div>
                 <button onClick={openCreateForm} className="btn-primary flex items-center justify-center gap-2">
                     <Plus size={18} />
                     New Event
