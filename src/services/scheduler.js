@@ -8,8 +8,8 @@ const { logActivity } = require('../models/database');
 const instagram = require('./instagram');
 
 async function scheduleDailyPosts() {
-    // Run birthday check every 30 minutes to catch up and handle staggered times
-    cron.schedule('*/30 * * * *', async () => {
+    // Run birthday check every minute to handle staggered times accurately
+    cron.schedule('* * * * *', async () => {
         console.log('Running periodic post scheduler check...');
         await processTodayEvents();
     }, { timezone: "Africa/Lagos" });
@@ -75,19 +75,33 @@ async function processTodayEvents() {
                     `SELECT id FROM activity_logs 
                      WHERE event_id = ? 
                      AND action = 'post_sent' 
-                     AND date(created_at) = date('now', 'localtime')`,
+                     AND date(created_at, 'localtime') = date('now', 'localtime')`,
                     [event.id]
                 );
 
                 if (alreadyPosted) {
-                    console.log(`Post for ${displayName} already sent today. Skipping.`);
                     continue;
                 }
 
+                // Check global gap to avoid batching multiple events in one run
+                // We use UTC comparison (SQLite's default) to be timezone-independent
+                const recentPost = await db.get(
+                    `SELECT id FROM activity_logs 
+                     WHERE action = 'post_sent' 
+                     AND created_at > datetime('now', '-10 minutes')
+                     LIMIT 1`
+                );
+
+                if (recentPost) {
+                    return;
+                }
+
                 console.log(`Executing scheduled post for ${displayName} (target time was ${targetHour}:${String(targetMin).padStart(2, '0')})`);
-                await sendPost(event);
-            } else {
-                console.log(`Staggered post for ${displayName} scheduled for ${targetHour}:${String(targetMin).padStart(2, '0')}. Waiting...`);
+                await module.exports.sendPost(event);
+                
+                // After one successful post attempt, we exit this run. 
+                // This ensures we never batch multiple posts and always respect the 1-minute cron check cycle.
+                return;
             }
         }
 
