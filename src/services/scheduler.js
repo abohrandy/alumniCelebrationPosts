@@ -170,7 +170,25 @@ async function processIntervalEvents() {
         const currentMin = String(now.getMinutes()).padStart(2, '0');
         const currentTime = `${currentHour}:${currentMin}`;
 
-        const events = await db.all(
+        // 1. Check ALL active interval events for expiry and auto-deactivate
+        const allActiveIntervals = await db.all(
+            "SELECT * FROM events WHERE schedule_type = 'interval' AND status = 'active'"
+        );
+
+        for (const event of allActiveIntervals) {
+            if (event.expiry_date) {
+                const expiryDate = new Date(event.expiry_date);
+                expiryDate.setHours(23, 59, 59, 999);
+                if (now > expiryDate) {
+                    console.log(`Event ${event.id} (${event.title}) has expired on ${event.expiry_date}. Deactivating.`);
+                    await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [event.id]);
+                    await logActivity(null, 'event_deactivated', event.id, `Announcement "${event.title || event.id}" auto-deactivated due to expiry (${event.expiry_date})`);
+                }
+            }
+        }
+
+        // 2. Process events due for posting NOW
+        const eventsToPost = await db.all(
             `SELECT * FROM events
              WHERE schedule_type = 'interval'
              AND status = 'active'
@@ -179,17 +197,7 @@ async function processIntervalEvents() {
             [currentTime]
         );
 
-        for (const event of events) {
-            // Check if event has expired
-            if (event.expiry_date) {
-                const expiryDate = new Date(event.expiry_date);
-                expiryDate.setHours(23, 59, 59, 999); // Include the expiry date itself
-                if (now > expiryDate) {
-                    console.log(`Event ${event.id} (${event.title}) has expired on ${event.expiry_date}. Skipping.`);
-                    continue;
-                }
-            }
-
+        for (const event of eventsToPost) {
             // Check if enough days have passed since creation or last post
             if (event.repeat_interval_days) {
                 const createdDate = new Date(event.created_at);
@@ -309,4 +317,4 @@ async function sendPost(event) {
     }
 }
 
-module.exports = { scheduleDailyPosts, processTodayEvents, sendPost };
+module.exports = { scheduleDailyPosts, processTodayEvents, processIntervalEvents, sendPost };

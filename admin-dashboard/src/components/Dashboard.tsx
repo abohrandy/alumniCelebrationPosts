@@ -90,7 +90,11 @@ function Dashboard({ onNavigate }: DashboardProps) {
             const nYyyy = nextDate.getFullYear();
             const nMm = String(nextDate.getMonth() + 1).padStart(2, '0');
             const nDd = String(nextDate.getDate()).padStart(2, '0');
-            return `${nYyyy}-${nMm}-${nDd}`;
+            const result = `${nYyyy}-${nMm}-${nDd}`;
+            if (e.expiry_date && result > e.expiry_date) {
+                return null;
+            }
+            return result;
         }
 
         if (e.schedule_type === 'weekly') {
@@ -106,8 +110,14 @@ function Dashboard({ onNavigate }: DashboardProps) {
 
         if (!e.event_date) return null;
 
-        // For single date events, only show if it's today or later
-        return e.event_date >= todayStr ? e.event_date : null;
+        const occurrenceDate = e.event_date >= todayStr ? e.event_date : null;
+
+        // Final check against expiry
+        if (occurrenceDate && e.expiry_date && occurrenceDate > e.expiry_date) {
+            return null;
+        }
+
+        return occurrenceDate;
     };
 
     const upcomingEvents = events
