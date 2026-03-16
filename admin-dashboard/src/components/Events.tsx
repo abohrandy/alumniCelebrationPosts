@@ -333,16 +333,20 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             {isPerson ? (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name</label>
+                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                                            {eventType === 'one_day_event' ? 'Event Name' : 'Full Name'}
+                                        </label>
                                         <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                                            placeholder="Enter person's name..."
+                                            placeholder={eventType === 'one_day_event' ? "Enter event name..." : "Enter person's name..."}
                                             className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Phone Number</label>
-                                        <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
-                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
-                                    </div>
+                                    {eventType !== 'one_day_event' && (
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Phone Number</label>
+                                            <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
+                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                                        </div>
+                                    )}
                                     <div>
                                         <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                             <Calendar size={14} className="inline mr-1" />

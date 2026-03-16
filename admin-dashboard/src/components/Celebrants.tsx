@@ -246,9 +246,11 @@ const Celebrants = () => {
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-400">Full Name</label>
+                                    <label className="text-sm font-medium text-slate-400">
+                                        {formData.event_type === 'one_day_event' ? 'Event Name' : 'Full Name'}
+                                    </label>
                                     <input required type="text" className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none"
-                                        placeholder="Enter person's name..."
+                                        placeholder={formData.event_type === 'one_day_event' ? "Enter event name..." : "Enter person's name..."}
                                         value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
