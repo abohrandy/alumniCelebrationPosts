@@ -11,7 +11,8 @@ const Settings = () => {
         imgbb_api_key: '',
         instagram_enabled: false,
         birthday_template: '',
-        anniversary_template: ''
+        anniversary_template: '',
+        one_day_event_template: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -38,6 +39,7 @@ const Settings = () => {
                     instagram_enabled: !!response.data.instagram_enabled,
                     birthday_template: response.data.birthday_template || '',
                     anniversary_template: response.data.anniversary_template || '',
+                    one_day_event_template: response.data.one_day_event_template || '',
                 });
             }
         } catch (error) {
@@ -133,6 +135,20 @@ const Settings = () => {
                                 className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for anniversary posts..."
+                            />
+                            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} for name and {"{phone}"} for the phone number.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                One Day Event Template
+                            </label>
+                            <textarea
+                                value={settings.one_day_event_template}
+                                onChange={(e) => setSettings({ ...settings, one_day_event_template: e.target.value })}
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                placeholder="Enter template for one day event posts..."
                             />
                             <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Use {"{name}"} for name and {"{phone}"} for the phone number.</p>
                         </div>

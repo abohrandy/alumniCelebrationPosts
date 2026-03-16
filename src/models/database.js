@@ -71,7 +71,7 @@ async function initDb() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name TEXT,
                 phone_number TEXT,
-                event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement')),
+                event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement', 'one_day_event')),
                 event_date TEXT,
                 design_image_path TEXT,
                 caption TEXT,
@@ -187,8 +187,8 @@ async function initDb() {
         // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch and schema changes ──
         // If we detect the old capitalized constraints, we must recreate the table
         const tableSchema = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='events'");
-        if (tableSchema && (tableSchema.sql.includes("'Birthday'") || columnNames.includes('first_name'))) {
-            console.log('Old capitalized constraints or first_name/second_name columns detected. Recreating events table with new schema...');
+        if (tableSchema && (tableSchema.sql.includes("'Birthday'") || columnNames.includes('first_name') || !tableSchema.sql.includes('one_day_event'))) {
+            console.log('Old constraints, missing event types, or legacy columns detected. Recreating events table...');
             await db.exec('PRAGMA foreign_keys = OFF');
             await db.exec('BEGIN TRANSACTION');
 
@@ -198,7 +198,7 @@ async function initDb() {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     full_name TEXT,
                     phone_number TEXT,
-                    event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement')),
+                    event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement', 'one_day_event')),
                     event_date TEXT,
                     design_image_path TEXT,
                     caption TEXT,
@@ -215,6 +215,11 @@ async function initDb() {
             `);
 
             // 2. Copy data while normalizing event_type to lowercase and combining names
+            const hasFirstName = columnNames.includes('first_name');
+            const fullNameSelect = hasFirstName 
+                ? "IFNULL(full_name, TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, '')))"
+                : "full_name";
+
             await db.exec(`
                 INSERT INTO events_new (
                     id, full_name, phone_number,
@@ -224,13 +229,12 @@ async function initDb() {
                 )
                 SELECT
                     id,
-                    IFNULL(full_name, TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, ''))),
+                    ${fullNameSelect},
                     phone_number,
                     CASE
                         WHEN event_type = 'Birthday' THEN 'birthday'
                         WHEN event_type = 'Wedding Anniversary' THEN 'wedding_anniversary'
-                        ELSE LOWER(event_type)
-                    END,
+                        ELSE LOWER(event_type)\n                    END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
                     post_time, 0, created_by, status, expiry_date, created_at
@@ -243,7 +247,7 @@ async function initDb() {
 
             await db.exec('COMMIT');
             await db.exec('PRAGMA foreign_keys = ON');
-            console.log('Events table successfully migrated to new constraints.');
+            console.log('Events table successfully migrated to new schema.');
         } else {
             // Simple value normalization if schema is already correct
             await db.exec("UPDATE events SET event_type = 'birthday' WHERE event_type = 'Birthday'");
@@ -299,7 +303,8 @@ async function initDb() {
             imgbb_api_key TEXT DEFAULT '',
             instagram_enabled INTEGER DEFAULT 0,
             birthday_template TEXT DEFAULT 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring woman. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}',
-            anniversary_template TEXT DEFAULT 'Happy Wedding Anniversary to {name} 🎉❤️\n\nMay your love continue to grow stronger, your home be filled with peace, and your union remain blessed with joy and prosperity.\n\nWishing you many more beautiful years together in happiness and good health. 💍✨\n\nFrom MUAA FCT Chapter\n@{phone}'
+            anniversary_template TEXT DEFAULT 'Happy Wedding Anniversary to {name} 🎉❤️\n\nMay your love continue to grow stronger, your home be filled with peace, and your union remain blessed with joy and prosperity.\n\nWishing you many more beautiful years together in happiness and good health. 💍✨\n\nFrom MUAA FCT Chapter\n@{phone}',
+            one_day_event_template TEXT DEFAULT 'Congratulations {name}! 🎉✨\n\nMUAA FCT celebrates with you on this special occasion. We wish you continued success, joy, and many more milestones ahead.\n\nKeep shining! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}'
         )
     `);
 
@@ -320,6 +325,9 @@ async function initDb() {
     }
     if (!settingsCols.includes('instagram_enabled')) {
         await db.exec("ALTER TABLE settings ADD COLUMN instagram_enabled INTEGER DEFAULT 0");
+    }
+    if (!settingsCols.includes('one_day_event_template')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN one_day_event_template TEXT DEFAULT 'Congratulations {name}! 🎉✨\n\nMUAA FCT celebrates with you on this special occasion. We wish you continued success, joy, and many more milestones ahead.\n\nKeep shining! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}'");
     }
 
     const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');

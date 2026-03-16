@@ -24,6 +24,7 @@ interface EventItem {
 const EVENT_TYPE_LABELS: Record<string, string> = {
     birthday: '🎂 Birthday',
     wedding_anniversary: '💍 Wedding Anniversary',
+    one_day_event: '✨ One Day Event',
     monday_market: '🛒 Monday Market',
     announcement: '📢 Announcement'
 };
@@ -31,6 +32,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 const EVENT_TYPE_COLORS: Record<string, string> = {
     birthday: 'bg-pink-500/20 text-pink-400',
     wedding_anniversary: 'bg-purple-500/20 text-purple-400',
+    one_day_event: 'bg-amber-500/20 text-amber-400',
     monday_market: 'bg-green-500/20 text-green-400',
     announcement: 'bg-blue-500/20 text-blue-400'
 };
@@ -205,7 +207,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         }
     };
 
-    const isPerson = eventType === 'birthday' || eventType === 'wedding_anniversary';
+    const isPerson = eventType === 'birthday' || eventType === 'wedding_anniversary' || eventType === 'one_day_event';
 
     const filteredEvents = (filterType === 'all'
         ? events
@@ -251,6 +253,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                     <option value="all">All Events ({events.length})</option>
                     <option value="birthday">Birthdays</option>
                     <option value="wedding_anniversary">Weddings</option>
+                    <option value="one_day_event">One Day Events</option>
                     <option value="monday_market">Monday Market</option>
                     <option value="announcement">Announcements</option>
                     <option value="recurring">Recurring (Market/Announce)</option>
@@ -320,6 +323,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 >
                                     <option value="birthday">🎂 Birthday</option>
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
+                                    <option value="one_day_event">✨ One Day Event</option>
                                     <option value="monday_market">🛒 Monday Market</option>
                                     <option value="announcement">📢 Announcement</option>
                                 </select>

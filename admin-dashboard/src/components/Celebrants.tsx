@@ -212,8 +212,8 @@ const Celebrants = () => {
                             <div className="flex-1">
                                 <h4 className="font-bold text-white text-lg">{c.full_name}</h4>
                                 <div className="flex items-center gap-2 text-primary font-medium text-xs mt-1">
-                                    {c.event_type === 'birthday' ? <Gift size={14} /> : <Calendar size={14} />}
-                                    {c.event_type === 'birthday' ? 'Birthday' : 'Wedding Anniversary'}
+                                    {c.event_type === 'birthday' ? <Gift size={14} /> : c.event_type === 'one_day_event' ? <Calendar size={14} className="text-amber-400" /> : <Calendar size={14} />}
+                                    {c.event_type === 'birthday' ? 'Birthday' : c.event_type === 'one_day_event' ? 'One Day Event' : 'Wedding Anniversary'}
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">{c.event_date}</p>
                             </div>
@@ -257,6 +257,7 @@ const Celebrants = () => {
                                         value={formData.event_type} onChange={e => setFormData({ ...formData, event_type: e.target.value })}>
                                         <option value="birthday">Birthday</option>
                                         <option value="wedding_anniversary">Wedding Anniversary</option>
+                                        <option value="one_day_event">One Day Event</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">

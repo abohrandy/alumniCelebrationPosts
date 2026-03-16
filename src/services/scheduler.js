@@ -45,7 +45,7 @@ async function processTodayEvents() {
 
         const events = await db.all(
             `SELECT * FROM events 
-             WHERE event_type IN ('birthday', 'wedding_anniversary') 
+             WHERE event_type IN ('birthday', 'wedding_anniversary', 'one_day_event') 
              AND event_date LIKE ? 
              AND status = 'active' 
              ORDER BY created_at ASC`,
@@ -229,16 +229,20 @@ async function sendPost(event) {
 
         let caption = '';
 
-        if (event.event_type === 'birthday' || event.event_type === 'wedding_anniversary') {
+        if (event.event_type === 'birthday' || event.event_type === 'wedding_anniversary' || event.event_type === 'one_day_event') {
             // Use custom caption, event template, or default template
             if (event.caption && event.caption.trim() !== '') {
                 caption = event.caption;
             } else if (event.message_template && event.message_template.trim() !== '') {
                 caption = event.message_template;
             } else {
-                caption = event.event_type === 'wedding_anniversary'
-                    ? (settings?.anniversary_template || '💍 Happy Wedding Anniversary {name}!')
-                    : (settings?.birthday_template || '🎉 Happy Birthday {name}!');
+                if (event.event_type === 'birthday') {
+                    caption = settings?.birthday_template || '🎉 Happy Birthday {name}!';
+                } else if (event.event_type === 'wedding_anniversary') {
+                    caption = settings?.anniversary_template || '💍 Happy Wedding Anniversary {name}!';
+                } else {
+                    caption = settings?.one_day_event_template || 'Congratulations {name}! 🎉✨';
+                }
             }
             const name = event.full_name || '';
             const phone = event.phone_number || '';

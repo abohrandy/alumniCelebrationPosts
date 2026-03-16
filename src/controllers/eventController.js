@@ -29,7 +29,8 @@ const eventController = {
             const subDir = event_type === 'monday_market' ? 'market'
                 : event_type === 'announcement' ? 'announcements'
                     : event_type === 'wedding_anniversary' ? 'anniversaries'
-                        : 'birthdays';
+                        : event_type === 'one_day_event' ? 'one_day'
+                            : 'birthdays';
 
             const uploadDir = path.join(uploadBase, subDir);
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -141,6 +142,7 @@ const eventController = {
                 const subDir = event_type === 'monday_market' ? 'market'
                     : event_type === 'announcement' ? 'announcements'
                         : event_type === 'wedding_anniversary' ? 'anniversaries'
+                        : event_type === 'one_day_event' ? 'one_day'
                             : 'birthdays';
 
                 const uploadDir = path.join(uploadBase, subDir);
