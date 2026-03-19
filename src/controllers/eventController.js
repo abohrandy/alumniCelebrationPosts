@@ -41,12 +41,17 @@ const eventController = {
                 const uploadPath = path.join(uploadDir, fileName);
                 const dbPath = `uploads/${subDir}/${fileName}`;
 
-                try {
-                    await sharp(file.data)
-                        .jpeg({ quality: 90 })
-                        .toFile(uploadPath);
-                } catch (sharpErr) {
-                    console.error('Sharp processing failed, saving raw file:', sharpErr.message);
+                if (file.mimetype.startsWith('image/')) {
+                    try {
+                        await sharp(file.data)
+                            .jpeg({ quality: 90 })
+                            .toFile(uploadPath);
+                    } catch (sharpErr) {
+                        console.error('Sharp processing failed, saving raw file:', sharpErr.message);
+                        await file.mv(uploadPath);
+                    }
+                } else {
+                    // For videos and other non-image files, just move them
                     await file.mv(uploadPath);
                 }
                 dbPaths.push(dbPath);
@@ -154,9 +159,18 @@ const eventController = {
                     const uploadPath = path.join(uploadDir, fileName);
                     const dbPath = `uploads/${subDir}/${fileName}`;
 
-                    await sharp(file.data)
-                        .jpeg({ quality: 90 })
-                        .toFile(uploadPath);
+                    if (file.mimetype.startsWith('image/')) {
+                        try {
+                            await sharp(file.data)
+                                .jpeg({ quality: 90 })
+                                .toFile(uploadPath);
+                        } catch (sharpErr) {
+                            console.error('Sharp processing failed, saving raw file:', sharpErr.message);
+                            await file.mv(uploadPath);
+                        }
+                    } else {
+                        await file.mv(uploadPath);
+                    }
 
                     dbPaths.push(dbPath);
                 }

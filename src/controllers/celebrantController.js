@@ -23,9 +23,14 @@ const celebrantController = {
             const uploadPath = path.join(uploadDir, fileName);
             const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
 
-            await sharp(image.data)
-                .jpeg({ quality: 90 })
-                .toFile(uploadPath);
+            if (image.mimetype.startsWith('image/')) {
+                await sharp(image.data)
+                    .jpeg({ quality: 90 })
+                    .toFile(uploadPath);
+            } else {
+                // For videos and other non-image files, just move them
+                await image.mv(uploadPath);
+            }
 
             const db = await initDb();
             const result = await db.run(
@@ -66,9 +71,13 @@ const celebrantController = {
                 const uploadPath = path.join(uploadDir, fileName);
                 const dbPath = event_type === 'Birthday' ? `uploads/birthdays/${fileName}` : `uploads/anniversaries/${fileName}`;
 
-                await sharp(image.data)
-                    .jpeg({ quality: 90 })
-                    .toFile(uploadPath);
+                if (image.mimetype.startsWith('image/')) {
+                    await sharp(image.data)
+                        .jpeg({ quality: 90 })
+                        .toFile(uploadPath);
+                } else {
+                    await image.mv(uploadPath);
+                }
 
                 updateQuery += `, design_image_path = ?`;
                 queryParams.push(dbPath);

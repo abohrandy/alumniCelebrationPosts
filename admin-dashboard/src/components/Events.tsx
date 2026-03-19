@@ -21,6 +21,12 @@ interface EventItem {
     created_at: string;
 }
 
+const isVideoFile = (path: string | null | undefined) => {
+    if (!path) return false;
+    const ext = path.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg', 'mov'].includes(ext || '');
+};
+
 const EVENT_TYPE_LABELS: Record<string, string> = {
     birthday: '🎂 Birthday',
     wedding_anniversary: '💍 Wedding Anniversary',
@@ -412,22 +418,27 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     className="w-full rounded-lg px-3 py-2 resize-none" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                             </div>
 
-                            {/* Image Upload */}
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
-                                    Design Image {eventType === 'monday_market' ? '(Select Multiple)' : ''}
+                                    Design Image or Video {eventType === 'monday_market' ? '(Select Multiple)' : ''}
                                 </label>
-                                <input type="file" accept="image/*"
+                                <input type="file" accept="image/*,video/*"
                                     multiple={eventType === 'monday_market'}
                                     onChange={handleImageChange}
                                     className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-medium file:cursor-pointer"
                                     required={!editingId} />
 
                                 {previewUrls.length > 0 && (
-                                    <div className={`mt-3 grid gap-2 ${previewUrls.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                         {previewUrls.map((url, idx) => (
-                                            <img key={idx} src={url} alt="Preview" className="rounded-lg h-24 sm:h-32 object-cover w-full border border-slate-700" />
+                                            <div key={idx} className="rounded-lg h-24 sm:h-32 overflow-hidden border border-slate-700 bg-slate-900">
+                                                {imageFiles[idx]?.type.startsWith('video/') || (editingId && isVideoFile(url)) ? (
+                                                    <video src={url} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                                                )}
+                                            </div>
                                         ))}
                                     </div>
                                 )}
@@ -473,11 +484,19 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             {viewingEvent.design_image_path && (
                                 <div className="relative group">
                                     <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                                    <img
-                                        src={`/${viewingEvent.design_image_path}`}
-                                        alt=""
-                                        className="relative w-full aspect-video object-cover rounded-xl border border-white/10 shadow-2xl"
-                                    />
+                                    {isVideoFile(viewingEvent.design_image_path) ? (
+                                        <video
+                                            src={`/${viewingEvent.design_image_path}`}
+                                            controls
+                                            className="relative w-full aspect-video object-contain bg-black rounded-xl border border-white/10 shadow-2xl"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={`/${viewingEvent.design_image_path}`}
+                                            alt=""
+                                            className="relative w-full aspect-video object-cover rounded-xl border border-white/10 shadow-2xl"
+                                        />
+                                    )}
                                 </div>
                             )}
 
@@ -581,9 +600,16 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                         <div key={event.id} className="glass-card p-3 lg:p-4 flex flex-col sm:flex-row sm:items-center gap-3 lg:gap-4 transition-colors">
                             {/* Image + Info row */}
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
+                                <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-800" style={{ backgroundColor: 'var(--bg-card-solid)' }}>
                                     {event.design_image_path && (
-                                        <img src={`/${event.design_image_path}`} alt="" className="w-full h-full object-cover" />
+                                        isVideoFile(event.design_image_path) ? (
+                                            <div className="text-primary flex flex-col items-center">
+                                                <Send size={24} />
+                                                <span className="text-[10px] font-bold">VIDEO</span>
+                                            </div>
+                                        ) : (
+                                            <img src={`/${event.design_image_path}`} alt="" className="w-full h-full object-cover" />
+                                        )
                                     )}
                                 </div>
 

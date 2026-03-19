@@ -12,6 +12,12 @@ interface Celebrant {
     design_image_path?: string;
 }
 
+const isVideoFile = (path: string | undefined) => {
+    if (!path) return false;
+    const ext = path.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg', 'mov'].includes(ext || '');
+};
+
 const Celebrants = () => {
     const [celebrants, setCelebrants] = useState<Celebrant[]>([]);
     const [showModal, setShowModal] = useState(false);
@@ -200,13 +206,20 @@ const Celebrants = () => {
                 {filtered.map((c) => (
                     <div key={c.id} className="glass-card p-5 group relative">
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 overflow-hidden">
+                            <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
                                 {c.design_image_path && (
-                                    <img
-                                        src={`http://localhost:3000/${c.design_image_path}`}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                    />
+                                    isVideoFile(c.design_image_path) ? (
+                                        <div className="text-primary flex flex-col items-center">
+                                            <Send size={24} />
+                                            <span className="text-[10px] font-bold">VIDEO</span>
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={`http://localhost:3000/${c.design_image_path}`}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )
                                 )}
                             </div>
                             <div className="flex-1">
@@ -277,13 +290,17 @@ const Celebrants = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-sm font-medium text-slate-400">Design Image (Any Size)</label>
+                                <label className="text-sm font-medium text-slate-400">Design Image or Video (Any Size)</label>
                                 <div className={`border-2 border-dashed ${ratioWarning ? 'border-yellow-500' : 'border-slate-700'} rounded-xl p-8 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer relative`}>
-                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageChange} accept="image/*" />
+                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageChange} accept="image/*,video/*" />
                                     {previewUrl ? (
-                                        <div className="flex flex-col items-center">
-                                            <div className="max-w-[200px] bg-slate-900 border-2 border-primary rounded-md overflow-hidden shadow-2xl relative">
-                                                <img src={previewUrl} className="w-full h-auto object-contain" />
+                                        <div className="flex flex-col items-center w-full">
+                                            <div className="max-w-[200px] w-full bg-slate-900 border-2 border-primary rounded-md overflow-hidden shadow-2xl relative">
+                                                {formData.design_image?.type.startsWith('video/') || (editingId && isVideoFile(previewUrl)) ? (
+                                                    <video src={previewUrl.startsWith('blob:') || previewUrl.startsWith('http') ? previewUrl : `http://localhost:3000/${previewUrl}`} controls className="w-full h-auto" />
+                                                ) : (
+                                                    <img src={previewUrl.startsWith('blob:') || previewUrl.startsWith('http') ? previewUrl : `http://localhost:3000/${previewUrl}`} className="w-full h-auto object-contain" />
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
