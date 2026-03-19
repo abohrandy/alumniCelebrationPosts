@@ -143,7 +143,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
             const formData = new FormData();
             formData.append('event_type', eventType);
 
-            if (eventType === 'birthday' || eventType === 'wedding_anniversary') {
+            if (eventType === 'birthday' || eventType === 'wedding_anniversary' || eventType === 'one_day_event') {
                 formData.append('full_name', fullName);
                 formData.append('phone_number', phoneNumber);
                 formData.append('event_date', eventDate);
@@ -315,7 +315,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     onChange={(e) => {
                                         setEventType(e.target.value);
                                         const type = e.target.value;
-                                        if (type === 'birthday' || type === 'wedding_anniversary') {
+                                        if (type === 'birthday' || type === 'wedding_anniversary' || type === 'one_day_event') {
                                             setScheduleType('single_date');
                                         } else if (type === 'monday_market') {
                                             setScheduleType('weekly');
