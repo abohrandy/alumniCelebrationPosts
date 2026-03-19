@@ -94,6 +94,14 @@ async function start() {
         server.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
         });
+
+        // Periodic maintenance (Garbage Collection)
+        if (global.gc) {
+            setInterval(() => {
+                console.log('Running scheduled global GC...');
+                global.gc();
+            }, 10 * 60 * 1000); // Every 10 minutes
+        }
     } catch (error) {
         console.error('Failed to start server:', error);
         process.exit(1);

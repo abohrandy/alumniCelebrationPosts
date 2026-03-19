@@ -19,7 +19,16 @@ class WhatsAppClient {
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--disable-extensions',
-                '--remote-allow-origins=*'
+                '--remote-allow-origins=*',
+                '--no-zygote',
+                '--no-first-run',
+                '--disable-canvas-aa',
+                '--disable-2d-canvas-clip-aa',
+                '--disable-gl-drawing-for-tests',
+                '--disable-breakpad',
+                '--disable-canvas-sketch-api',
+                '--disable-domain-reliability',
+                '--js-flags="--max-old-space-size=512"'
             ]
         };
 
@@ -164,7 +173,16 @@ class WhatsAppClient {
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
                     '--disable-extensions',
-                    '--remote-allow-origins=*'
+                    '--remote-allow-origins=*',
+                    '--no-zygote',
+                    '--no-first-run',
+                    '--disable-canvas-aa',
+                    '--disable-2d-canvas-clip-aa',
+                    '--disable-gl-drawing-for-tests',
+                    '--disable-breakpad',
+                    '--disable-canvas-sketch-api',
+                    '--disable-domain-reliability',
+                    '--js-flags="--max-old-space-size=512"'
                 ]
             };
             if (process.env.PUPPETEER_EXECUTABLE_PATH) {

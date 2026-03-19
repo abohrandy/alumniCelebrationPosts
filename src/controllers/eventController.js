@@ -1,6 +1,9 @@
 const { initDb, logActivity } = require('../models/database');
 const path = require('path');
+const http = require('http');
 const sharp = require('sharp');
+sharp.cache(false);
+sharp.concurrency(1);
 const fs = require('fs');
 const { emitStats } = require('../services/socket');
 
