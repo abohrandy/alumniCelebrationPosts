@@ -118,7 +118,7 @@ const Settings = () => {
                             <textarea
                                 value={settings.birthday_template}
                                 onChange={(e) => setSettings({ ...settings, birthday_template: e.target.value })}
-                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-y"
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for birthday posts..."
                             />
@@ -132,7 +132,7 @@ const Settings = () => {
                             <textarea
                                 value={settings.anniversary_template}
                                 onChange={(e) => setSettings({ ...settings, anniversary_template: e.target.value })}
-                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-y"
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for anniversary posts..."
                             />
@@ -146,7 +146,7 @@ const Settings = () => {
                             <textarea
                                 value={settings.one_day_event_template}
                                 onChange={(e) => setSettings({ ...settings, one_day_event_template: e.target.value })}
-                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none"
+                                className="w-full h-32 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-y"
                                 style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                                 placeholder="Enter template for one day event posts..."
                             />
