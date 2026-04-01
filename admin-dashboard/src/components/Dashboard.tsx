@@ -80,7 +80,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
             if (thisYearDate >= todayStr) {
                 return thisYearDate;
             } else {
-                return `${yyyy + 1}-${origMmDd}`;
+                return null; // Don't show it for next year if it has already passed this year
             }
         }
 
