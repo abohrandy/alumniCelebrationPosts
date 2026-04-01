@@ -14,12 +14,13 @@ async function cleanupOneDayEvents() {
         const now = new Date();
         const todayStr = format(now, 'yyyy-MM-dd');
 
-        // Deactivate all one_day_events whose event_date is earlier than today
+        // Deactivate all one_day_events whose event_date is earlier than today AND are not repeating annually
         const result = await db.run(
             `UPDATE events 
              SET status = 'inactive' 
              WHERE event_type = 'one_day_event' 
              AND status = 'active'
+             AND (repeat_annually IS NULL OR repeat_annually = 0)
              AND event_date < ?`,
             [todayStr]
         );
@@ -33,11 +34,42 @@ async function cleanupOneDayEvents() {
     }
 }
 
+// ── Reactivate Yearly Events ──
+async function reactivateYearlyEvents() {
+    try {
+        const db = await initDb();
+        const currentYear = new Date().getFullYear().toString();
+
+        // Reactivate birthdays, anniversaries, and repeating one-day events
+        // ONLY if they haven't been successfully posted yet in the current year.
+        const result = await db.run(`
+            UPDATE events 
+            SET status = 'active'
+            WHERE event_type IN ('birthday', 'wedding_anniversary', 'one_day_event')
+            AND (event_type != 'one_day_event' OR repeat_annually = 1)
+            AND status = 'inactive'
+            AND id NOT IN (
+                SELECT event_id FROM activity_logs 
+                WHERE action = 'post_sent' 
+                AND strftime('%Y', created_at) = ?
+            )
+        `, [currentYear]);
+
+        if (result && result.changes > 0) {
+            console.log(`Reactivated ${result.changes} yearly events for ${currentYear}.`);
+            await logActivity(null, 'reactivate_yearly', null, `Reactivated ${result.changes} yearly events for ${currentYear}.`);
+        }
+    } catch (error) {
+        console.error('Error reactivating yearly events:', error);
+    }
+}
+
 async function scheduleDailyPosts() {
     // ── Daily Cleanup ──
     // Every day at midnight
     cron.schedule('0 0 * * *', async () => {
-        console.log('Running daily cleanup for one-day events...');
+        console.log('Running daily cleanup and reactivation...');
+        await reactivateYearlyEvents();
         await cleanupOneDayEvents();
     }, { timezone: "Africa/Lagos" });
 
@@ -49,6 +81,7 @@ async function scheduleDailyPosts() {
 
     // Initial check on startup
     console.log('Running initial post scheduler check on startup...');
+    await reactivateYearlyEvents();
     await cleanupOneDayEvents();
     await processTodayEvents();
 
@@ -214,9 +247,19 @@ async function processIntervalEvents() {
                 const expiryDate = new Date(event.expiry_date);
                 expiryDate.setHours(23, 59, 59, 999);
                 if (now > expiryDate) {
-                    console.log(`Event ${event.id} (${event.title}) has expired on ${event.expiry_date}. Deactivating.`);
-                    await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [event.id]);
-                    await logActivity(null, 'event_deactivated', event.id, `Announcement "${event.title || event.id}" auto-deactivated due to expiry (${event.expiry_date})`);
+                    console.log(`Event ${event.id} (${event.title}) has expired on ${event.expiry_date}. Deleting.`);
+                    // Deleting the image files
+                    if (event.design_image_path) {
+                        try {
+                            const fullPath = process.env.DATA_DIR 
+                                ? path.resolve(process.env.DATA_DIR, event.design_image_path.replace('uploads/', '')) 
+                                : path.resolve(event.design_image_path);
+                            if (require('fs').existsSync(fullPath)) require('fs').unlinkSync(fullPath);
+                        } catch(e) {}
+                    }
+                    await db.run("DELETE FROM events WHERE id = ?", [event.id]);
+                    emitLog({ type: 'success', message: `Announcement "${event.title || event.id}" auto-deleted due to expiry.`, timestamp: new Date().toISOString() });
+                    await logActivity(null, 'event_deleted', event.id, `Announcement "${event.title || event.id}" auto-deleted due to expiry (${event.expiry_date})`);
                 }
             }
         }
@@ -344,6 +387,37 @@ async function sendPost(event) {
         if (global.gc) {
             console.log('Running explicit GC after post success...');
             global.gc();
+        }
+
+        // --- Lifecycle Automation ---
+        // 1. Deactivate annual events after posting "till next year"
+        if (event.event_type === 'birthday' || 
+            event.event_type === 'wedding_anniversary' || 
+            (event.event_type === 'one_day_event' && event.repeat_annually === 1) || 
+            (event.event_type === 'one_day_event' && (!event.repeat_annually || event.repeat_annually === 0))) {
+            
+            await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [event.id]);
+            // If it's a repeating one day event, it's deactivated till next year. If it's non-repeating, it's deactivated permanently.
+            if (event.event_type === 'one_day_event' && (!event.repeat_annually || event.repeat_annually === 0)) {
+                 console.log(`Deactivated non-repeating one-day event (ID: ${event.id}) as it has been posted.`);
+            } else {
+                 console.log(`Deactivated annual event ${event.event_type} (ID: ${event.id}) until next year.`);
+            }
+        }
+        
+        // 2. Delete single-post non-repeating announcements immediately after post
+        if (event.event_type === 'announcement' && (!event.repeat_interval_days || event.repeat_interval_days == 0)) {
+            if (event.design_image_path) {
+                try {
+                    const fullPath = process.env.DATA_DIR 
+                        ? path.resolve(process.env.DATA_DIR, event.design_image_path.replace('uploads/', '')) 
+                        : path.resolve(event.design_image_path);
+                    if (require('fs').existsSync(fullPath)) require('fs').unlinkSync(fullPath);
+                } catch(e) {}
+            }
+            await db.run("DELETE FROM events WHERE id = ?", [event.id]);
+            console.log(`Deleted non-repeating announcement (ID: ${event.id}).`);
+            await logActivity(null, 'event_deleted', event.id, `Single-post announcement "${event.title || event.id}" auto-deleted after posting.`);
         }
 
     } catch (error) {

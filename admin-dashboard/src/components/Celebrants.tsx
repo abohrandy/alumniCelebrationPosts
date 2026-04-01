@@ -10,6 +10,7 @@ interface Celebrant {
     event_date: string;
     message_template?: string;
     design_image_path?: string;
+    repeat_annually?: number | boolean;
 }
 
 const isVideoFile = (path: string | undefined) => {
@@ -29,7 +30,8 @@ const Celebrants = () => {
         event_type: 'birthday',
         event_date: '',
         message_template: '',
-        design_image: null as File | null
+        design_image: null as File | null,
+        repeat_annually: false
     });
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [ratioWarning, setRatioWarning] = useState(false);
@@ -70,7 +72,8 @@ const Celebrants = () => {
             event_type: c.event_type,
             event_date: c.event_date,
             message_template: c.message_template || '',
-            design_image: null
+            design_image: null,
+            repeat_annually: c.repeat_annually === 1 || c.repeat_annually === true
         });
         setPreviewUrl(c.design_image_path ? `http://localhost:3000/${c.design_image_path}` : null);
         setEditingId(c.id);
@@ -108,7 +111,8 @@ const Celebrants = () => {
             event_type: 'birthday',
             event_date: '',
             message_template: '',
-            design_image: null
+            design_image: null,
+            repeat_annually: false
         });
         setEditingId(null);
         setPreviewUrl(null);
@@ -281,6 +285,21 @@ const Celebrants = () => {
                                         value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} />
                                 </div>
                             </div>
+                            
+                            {formData.event_type === 'one_day_event' && (
+                                <div className="flex items-center gap-2 mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                                    <input
+                                        type="checkbox"
+                                        id="repeatAnnually"
+                                        checked={formData.repeat_annually}
+                                        onChange={(e) => setFormData({ ...formData, repeat_annually: e.target.checked })}
+                                        className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-primary focus:ring-primary"
+                                    />
+                                    <label htmlFor="repeatAnnually" className="text-sm text-slate-300">
+                                        Repeat Event Annually
+                                    </label>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-400">Custom Caption (Optional - Overrides default template)</label>

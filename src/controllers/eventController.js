@@ -14,7 +14,7 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
             } = req.body;
 
             // Backward compatibility
@@ -65,8 +65,8 @@ const eventController = {
 
             const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
@@ -81,6 +81,7 @@ const eventController = {
                     post_time || '06:00',
                     0,
                     expiry_date || null,
+                    repeat_annually ? 1 : 0,
                     userId
                 ]
             );
@@ -99,7 +100,7 @@ const eventController = {
             const displayName = fullName || title || event_type;
 
             await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`, {
-                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
             });
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
@@ -115,7 +116,7 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
             } = req.body;
 
             const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
@@ -126,7 +127,7 @@ const eventController = {
                 UPDATE events 
                 SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
-                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?
+                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?, repeat_annually = ?
             `;
             let queryParams = [
                 title || null,
@@ -139,7 +140,8 @@ const eventController = {
                 schedule_type || 'single_date',
                 repeat_interval_days || null,
                 post_time || '06:00',
-                expiry_date || null
+                expiry_date || null,
+                repeat_annually ? 1 : 0
             ];
 
             if (req.files && (req.files.design_image || req.files['design_image[]'])) {
@@ -201,7 +203,7 @@ const eventController = {
 
             const userId = req.user ? req.user.id : null;
             await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`, {
-                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
             });
             res.json({ message: 'Event updated successfully.' });
         } catch (error) {

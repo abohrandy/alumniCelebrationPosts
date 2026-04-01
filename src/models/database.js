@@ -83,6 +83,7 @@ async function initDb() {
                 created_by INTEGER REFERENCES users(id),
                 status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                 expiry_date TEXT,
+                repeat_annually INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -165,6 +166,9 @@ async function initDb() {
         if (!columnNames.includes('expiry_date')) {
             await db.exec("ALTER TABLE events ADD COLUMN expiry_date TEXT");
         }
+        if (!columnNames.includes('repeat_annually')) {
+            await db.exec("ALTER TABLE events ADD COLUMN repeat_annually INTEGER DEFAULT 0");
+        }
         // Remove first_name and second_name if full_name exists and they are no longer needed
         if (columnNames.includes('first_name') && columnNames.includes('full_name')) {
             // SQLite does not support dropping columns directly without recreating the table.
@@ -210,6 +214,7 @@ async function initDb() {
                     created_by INTEGER REFERENCES users(id),
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                     expiry_date TEXT,
+                    repeat_annually INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -225,7 +230,7 @@ async function initDb() {
                     id, full_name, phone_number,
                     event_type, event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, current_image_index, created_by, status, expiry_date, created_at
+                    post_time, current_image_index, created_by, status, expiry_date, repeat_annually, created_at
                 )
                 SELECT
                     id,
@@ -237,7 +242,7 @@ async function initDb() {
                         ELSE LOWER(event_type)\n                    END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, 0, created_by, status, expiry_date, created_at
+                    post_time, 0, created_by, status, expiry_date, 0, created_at
                 FROM events
             `);
 

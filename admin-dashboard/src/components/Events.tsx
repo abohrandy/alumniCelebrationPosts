@@ -488,13 +488,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         <video
                                             src={`/${viewingEvent.design_image_path}`}
                                             controls
-                                            className="relative w-full aspect-video object-contain bg-black rounded-xl border border-white/10 shadow-2xl"
+                                            className="relative w-full h-auto max-h-[60vh] object-contain bg-black rounded-xl border border-white/10 shadow-2xl"
                                         />
                                     ) : (
                                         <img
                                             src={`/${viewingEvent.design_image_path}`}
                                             alt=""
-                                            className="relative w-full aspect-video object-cover rounded-xl border border-white/10 shadow-2xl"
+                                            className="relative w-full h-auto max-h-[60vh] object-contain bg-black/20 rounded-xl border border-white/10 shadow-2xl"
                                         />
                                     )}
                                 </div>
