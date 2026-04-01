@@ -7,7 +7,40 @@ const { emitLog } = require('./socket');
 const { logActivity } = require('../models/database');
 const instagram = require('./instagram');
 
+// ── Cleanup Past One-Day Events ──
+async function cleanupOneDayEvents() {
+    try {
+        const db = await initDb();
+        const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
+
+        // Deactivate all one_day_events whose event_date is earlier than today
+        const result = await db.run(
+            `UPDATE events 
+             SET status = 'inactive' 
+             WHERE event_type = 'one_day_event' 
+             AND status = 'active'
+             AND event_date < ?`,
+            [todayStr]
+        );
+        
+        if (result && result.changes > 0) {
+            console.log(`Cleaned up (deactivated) ${result.changes} past one-day events.`);
+            await logActivity(null, 'cleanup', null, `Deactivated ${result.changes} past one-day events.`);
+        }
+    } catch (error) {
+        console.error('Error cleaning up one-day events:', error);
+    }
+}
+
 async function scheduleDailyPosts() {
+    // ── Daily Cleanup ──
+    // Every day at midnight
+    cron.schedule('0 0 * * *', async () => {
+        console.log('Running daily cleanup for one-day events...');
+        await cleanupOneDayEvents();
+    }, { timezone: "Africa/Lagos" });
+
     // Run birthday check every minute to handle staggered times accurately
     cron.schedule('* * * * *', async () => {
         console.log('Running periodic post scheduler check...');
@@ -16,6 +49,7 @@ async function scheduleDailyPosts() {
 
     // Initial check on startup
     console.log('Running initial post scheduler check on startup...');
+    await cleanupOneDayEvents();
     await processTodayEvents();
 
     // ── Monday Market ──
