@@ -414,7 +414,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
                                 <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3}
-                                    placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name.' : 'Enter post caption...'}
+                                    placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name and {phone} for phone number.' : 'Enter post caption...'}
                                     className="w-full rounded-lg px-3 py-2 resize-y min-h-[80px]" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                             </div>
 

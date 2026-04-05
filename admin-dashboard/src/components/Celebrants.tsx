@@ -304,7 +304,7 @@ const Celebrants = () => {
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-400">Custom Caption (Optional - Overrides default template)</label>
                                 <textarea className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:border-primary outline-none resize-y min-h-[80px]"
-                                    placeholder="Enter a personalized message for this celebrant. Use {name} if you want their name inserted dynamically."
+                                    placeholder="Enter a personalized message for this celebrant. Use {name} for their name and {phone} for their phone number."
                                     value={formData.message_template} onChange={e => setFormData({ ...formData, message_template: e.target.value })} />
                             </div>
 

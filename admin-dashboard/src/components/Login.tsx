@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 
-interface LoginProps {
-    onCheckAuth: () => void;
-}
 
-function Login({ onCheckAuth }: LoginProps) {
+function Login() {
     const [theme] = useState(() => localStorage.getItem('theme') || 'dark');
 
     useEffect(() => {

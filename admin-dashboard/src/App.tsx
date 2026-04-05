@@ -85,7 +85,7 @@ function App() {
   }
 
   if (!user) {
-    return <Login onCheckAuth={checkAuth} />;
+    return <Login />;
   }
 
   const isAdmin = user.role === 'admin';

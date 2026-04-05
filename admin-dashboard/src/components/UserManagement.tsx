@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, UserCog, Trash2 } from 'lucide-react';
+import { Shield, UserCog } from 'lucide-react';
 import axios from 'axios';
 
 interface User {
