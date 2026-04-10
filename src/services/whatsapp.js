@@ -28,7 +28,24 @@ class WhatsAppClient {
                 '--disable-breakpad',
                 '--disable-canvas-sketch-api',
                 '--disable-domain-reliability',
-                '--js-flags="--max-old-space-size=512"'
+                // Additional explicit optimization flags to reduce RAM usage and cost on Railway
+                '--disable-software-rasterizer',
+                '--disable-background-networking',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-client-side-phishing-detection',
+                '--disable-default-apps',
+                '--disable-hang-monitor',
+                '--disable-popup-blocking',
+                '--disable-prompt-on-repost',
+                '--disable-sync',
+                '--disable-translate',
+                '--metrics-recording-only',
+                '--safebrowsing-disable-auto-update',
+                '--mute-audio',
+                '--disable-infobars',
+                '--disable-site-isolation-trials', // Major memory saver for headless Chromium
+                '--js-flags="--max-old-space-size=256"'
             ]
         };
 
@@ -182,7 +199,24 @@ class WhatsAppClient {
                     '--disable-breakpad',
                     '--disable-canvas-sketch-api',
                     '--disable-domain-reliability',
-                    '--js-flags="--max-old-space-size=512"'
+                    // Additional explicit optimization flags to reduce RAM usage and cost on Railway
+                    '--disable-software-rasterizer',
+                    '--disable-background-networking',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-client-side-phishing-detection',
+                    '--disable-default-apps',
+                    '--disable-hang-monitor',
+                    '--disable-popup-blocking',
+                    '--disable-prompt-on-repost',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--metrics-recording-only',
+                    '--safebrowsing-disable-auto-update',
+                    '--mute-audio',
+                    '--disable-infobars',
+                    '--disable-site-isolation-trials', // Major memory saver for headless Chromium
+                    '--js-flags="--max-old-space-size=256"'
                 ]
             };
             if (process.env.PUPPETEER_EXECUTABLE_PATH) {
