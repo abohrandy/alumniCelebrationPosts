@@ -45,7 +45,9 @@ class WhatsAppClient {
                 '--mute-audio',
                 '--disable-infobars',
                 '--disable-site-isolation-trials', // Major memory saver for headless Chromium
-                '--js-flags="--max-old-space-size=256"'
+                '--single-process', // Experimental: Forces everything into one process to save RAM
+                '--disable-renderer-backgrounding',
+                '--js-flags="--max-old-space-size=192"'
             ]
         };
 
@@ -137,7 +139,32 @@ class WhatsAppClient {
             }, 5000);
         }
 
-        return this.client.initialize();
+        const initResult = this.client.initialize();
+
+        // ── Aggressive Memory Strategy: Request Interception ──
+        // Once the browser is launched, we intercept and block weight resources (images, css, etc)
+        // Note: pupPage is usually available shortly after initialize()
+        setTimeout(async () => {
+            try {
+                if (this.client.pupPage) {
+                    const page = this.client.pupPage;
+                    await page.setRequestInterception(true);
+                    page.on('request', (req) => {
+                        const resourceType = req.resourceType();
+                        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+                            req.abort();
+                        } else {
+                            req.continue();
+                        }
+                    });
+                    console.log('--- Aggressive Resource Interception Enabled (Blocking CSS/Images/Fonts) ---');
+                }
+            } catch (err) {
+                console.error('Failed to set request interception:', err.message);
+            }
+        }, 5000);
+
+        return initResult;
     }
 
     _cleanLockFiles(dir) {
@@ -216,7 +243,9 @@ class WhatsAppClient {
                     '--mute-audio',
                     '--disable-infobars',
                     '--disable-site-isolation-trials', // Major memory saver for headless Chromium
-                    '--js-flags="--max-old-space-size=256"'
+                    '--single-process',
+                    '--disable-renderer-backgrounding',
+                    '--js-flags="--max-old-space-size=192"'
                 ]
             };
             if (process.env.PUPPETEER_EXECUTABLE_PATH) {
