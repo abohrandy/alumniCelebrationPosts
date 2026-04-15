@@ -79,9 +79,11 @@ class WhatsAppClient {
                 },
                 logger: silentLogger,
                 printQRInTerminal: false,
-                browser: Browsers.appropriate('Desktop'),
+                browser: ['Ubuntu', 'Chrome', '110.0.5481.177'], // More specific identity
                 syncFullHistory: false,
-                generateHighQualityLinkPreview: false
+                generateHighQualityLinkPreview: false,
+                connectTimeoutMs: 60000, // Increase timeout to 60s
+                defaultQueryTimeoutMs: 60000
             });
 
             this.client = this.sock;
@@ -232,8 +234,22 @@ class WAAccountManager {
     async removeInstance(id) {
         const client = this.instances.get(parseInt(id));
         if (client) {
+            const authDirName = client.authDirName;
             await client.disconnect();
             this.instances.delete(parseInt(id));
+            
+            // Physically delete the auth directory to ensure a clean state
+            try {
+                const baseDir = process.env.DATA_DIR || path.join(__dirname, '..', '..');
+                const authPath = path.join(baseDir, authDirName);
+                if (fs.existsSync(authPath)) {
+                    // Using rmSync for absolute cleanup
+                    fs.rmSync(authPath, { recursive: true, force: true });
+                    console.log(`[WA-Manager] Physically deleted auth directory: ${authPath}`);
+                }
+            } catch (err) {
+                console.error(`[WA-Manager] Failed to delete auth directory for account ${id}:`, err);
+            }
         }
     }
 
