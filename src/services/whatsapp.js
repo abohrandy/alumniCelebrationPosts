@@ -60,11 +60,12 @@ class WhatsAppClient {
             authStrategy: new LocalAuth({
                 dataPath: authPath
             }),
-            puppeteer: puppeteerOptions,
-            webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+            puppeteer: {
+                ...puppeteerOptions,
+                timeout: 120000 // 2-minute launch timeout
             }
+            // webVersionCache omitted: using the bundled WhatsApp Web version for reliability.
+            // Remote URL fetches frequently fail or hang on Railway causing silent startup failures.
         });
 
         this.status = 'DISCONNECTED';
@@ -161,7 +162,18 @@ class WhatsAppClient {
             }, 5000);
         }
 
-        const initResult = this.client.initialize();
+        // initialize() resolves once Chromium launches (not when WhatsApp is ready).
+        // We catch errors here so a Chromium launch failure doesn't crash the whole server.
+        const initResult = this.client.initialize().catch(err => {
+            console.error('WhatsApp client initialize() failed:', err.message);
+            emitLog({ type: 'error', message: `WhatsApp init failed: ${err.message}`, timestamp: new Date().toISOString() });
+            this.initialized = false;
+            // Retry after 30s delay
+            setTimeout(() => {
+                console.log('Retrying WhatsApp initialization after failure...');
+                this.reconnect().catch(e => console.error('Retry reconnect failed:', e.message));
+            }, 30000);
+        });
 
         // ── Request Interception: block heavy resources to reduce RAM ──
         setTimeout(async () => {
@@ -182,7 +194,7 @@ class WhatsAppClient {
             } catch (err) {
                 console.error('Failed to set request interception:', err.message);
             }
-        }, 5000);
+        }, 8000);
 
         return initResult;
     }
@@ -275,11 +287,11 @@ class WhatsAppClient {
                 authStrategy: new LocalAuth({
                     dataPath: authPath
                 }),
-                puppeteer: reconnectPuppeteerOptions,
-                webVersionCache: {
-                    type: 'remote',
-                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+                puppeteer: {
+                    ...reconnectPuppeteerOptions,
+                    timeout: 120000
                 }
+                // No webVersionCache remote — use bundled version for reliability
             });
             return this.init();
         } catch (error) {

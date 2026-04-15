@@ -87,8 +87,14 @@ app.get('/{*splat}', (req, res) => {
 async function start() {
     try {
         await initDb();
+
+        // Start WhatsApp in background — don't block server startup
+        // If Chromium fails, the auto-retry in whatsapp.js will handle recovery
         const waClient = require('./src/services/whatsapp');
-        await waClient.init();
+        waClient.init().catch(err => {
+            console.error('WhatsApp init error (non-fatal, will retry):', err.message);
+        });
+
         await scheduleDailyPosts();
 
         server.listen(PORT, () => {
