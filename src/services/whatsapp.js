@@ -47,10 +47,19 @@ class WhatsAppClient {
                 Browsers
             } = await getBaileys();
 
-            const baseDir = process.env.DATA_DIR || 'C:\\';
+            // Use DATA_DIR if set (Railway volume), otherwise use project root
+            const baseDir = process.env.DATA_DIR || path.join(__dirname, '..', '..');
             const authPath = path.join(baseDir, this.authDirName);
 
-            if (!fs.existsSync(authPath)) fs.mkdirSync(authPath, { recursive: true });
+            console.log(`[WA-${this.id}] Initializing with auth path: ${authPath}`);
+            
+            if (!fs.existsSync(authPath)) {
+                try {
+                    fs.mkdirSync(authPath, { recursive: true });
+                } catch (mkdirErr) {
+                    throw new Error(`Failed to create auth directory: ${mkdirErr.message}`);
+                }
+            }
 
             const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
@@ -105,11 +114,13 @@ class WhatsAppClient {
                     this.client = null;
                     
                     if (shouldReconnect) {
+                        console.log(`[WA-${this.id}] Reconnecting in 10s...`);
                         setTimeout(() => {
                             this.initialized = false;
                             this.init().catch(() => {});
                         }, 10000);
                     } else {
+                        console.log(`[WA-${this.id}] Logged out. Manual reconnection required.`);
                         this.initialized = false;
                     }
                     emitStatus(this.getStatus());
@@ -117,8 +128,14 @@ class WhatsAppClient {
             });
 
         } catch (error) {
+            console.error(`[WA-${this.id}] Initialization failed:`, error);
             this.initialized = false;
             this.lastError = error.message;
+            emitLog({ 
+                type: 'error', 
+                message: `Failed to initialize ${this.name}: ${error.message}`, 
+                timestamp: new Date().toISOString() 
+            });
             emitStatus(this.getStatus());
         }
     }
