@@ -422,9 +422,28 @@ async function initDb() {
             last_error TEXT,
             is_default INTEGER DEFAULT 0,
             group_id TEXT DEFAULT '',
+            group_id_2 TEXT DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Add group_id_2 column if missing (migration)
+    const profileColumns = await db.all("PRAGMA table_info(whatsapp_profiles)");
+    const profileColNames = profileColumns.map(c => c.name);
+    if (!profileColNames.includes('group_id_2')) {
+        await db.exec("ALTER TABLE whatsapp_profiles ADD COLUMN group_id_2 TEXT DEFAULT ''");
+    }
+
+    // Migration: Sync global settings to primary profile if profile groups are empty
+    const globalSettings = await db.get('SELECT whatsapp_group_id, whatsapp_group_id_2 FROM settings WHERE id = 1');
+    if (globalSettings) {
+        await db.run(`
+            UPDATE whatsapp_profiles 
+            SET group_id = CASE WHEN group_id = '' THEN ? ELSE group_id END,
+                group_id_2 = CASE WHEN group_id_2 = '' THEN ? ELSE group_id_2 END
+            WHERE is_default = 1
+        `, [globalSettings.whatsapp_group_id, globalSettings.whatsapp_group_id_2]);
+    }
 
     // ── Migrate Existing Session to Profile 1 ──
     const profileCount = await db.get('SELECT COUNT(*) as count FROM whatsapp_profiles');

@@ -128,15 +128,15 @@ router.get('/whatsapp/profiles', requireAuth, async (req, res) => {
 // Create new profile
 router.post('/whatsapp/profiles', requireAdmin, async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, group_id, group_id_2 } = req.body;
         if (!name) return res.status(400).json({ error: 'Name is required' });
 
         const { getDb } = require('../models/database');
         const db = await getDb();
         
         const result = await db.run(
-            'INSERT INTO whatsapp_profiles (name, auth_dir) VALUES (?, ?)',
-            [name, `wa_auth_${Date.now()}`]
+            'INSERT INTO whatsapp_profiles (name, auth_dir, group_id, group_id_2) VALUES (?, ?, ?, ?)',
+            [name, `wa_auth_${Date.now()}`, group_id || '', group_id_2 || '']
         );
         
         const newProfile = await db.get('SELECT * FROM whatsapp_profiles WHERE id = ?', [result.lastID]);
@@ -144,6 +144,33 @@ router.post('/whatsapp/profiles', requireAdmin, async (req, res) => {
         
         await logActivity(req.user.id, 'whatsapp_profile_created', null, `Created WhatsApp profile: ${name}`);
         res.json(newProfile);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update profile details
+router.patch('/whatsapp/profiles/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, group_id, group_id_2 } = req.body;
+        const { getDb } = require('../models/database');
+        const db = await getDb();
+
+        const profile = await db.get('SELECT * FROM whatsapp_profiles WHERE id = ?', [id]);
+        if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+        await db.run(
+            'UPDATE whatsapp_profiles SET name = ?, group_id = ?, group_id_2 = ? WHERE id = ?',
+            [name || profile.name, group_id ?? profile.group_id, group_id_2 ?? profile.group_id_2, id]
+        );
+
+        // Update live instance name if it exists
+        const instance = waClient.getInstance(id);
+        if (instance) instance.name = name || profile.name;
+
+        await logActivity(req.user.id, 'whatsapp_profile_updated', null, `Updated WhatsApp profile: ${name || profile.name}`);
+        res.json({ message: 'Profile updated successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

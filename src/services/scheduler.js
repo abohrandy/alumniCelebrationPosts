@@ -335,7 +335,7 @@ async function sendPost(event, _isRetry = false) {
 
         const displayName = event.full_name || event.title || event.event_type;
 
-        // --- Multi-Account Routing ---
+        // --- Multi-Account Routing & Group Selection ---
         // 1. Determine which WhatsApp account to use
         const profileId = event.whatsapp_profile_id;
         const instance = waClient.getInstance(profileId);
@@ -348,23 +348,28 @@ async function sendPost(event, _isRetry = false) {
             return;
         }
 
-        // 2. Determine target group
-        // If the profile has a group_id set, use it. Otherwise use Settings.
-        const dbProfile = await db.get('SELECT group_id FROM whatsapp_profiles WHERE id = ?', [instance.id]);
+        // 2. Determine target groups (Fetch from profile, fall back to global settings)
+        const dbProfile = await db.get('SELECT group_id, group_id_2 FROM whatsapp_profiles WHERE id = ?', [instance.id]);
         const targetGroupId = (dbProfile && dbProfile.group_id) ? dbProfile.group_id : groupId;
+        const targetGroupId2 = (dbProfile && dbProfile.group_id_2) ? dbProfile.group_id_2 : groupId2;
 
-        console.log(`Sending post for ${displayName} via account [${instance.name}] to group [${targetGroupId}]`);
+        console.log(`Sending post for ${displayName} via account [${instance.name}]`);
 
         // Send to primary group
-        await instance.sendImageWithCaption(targetGroupId, imagePath, caption);
+        if (targetGroupId) {
+            console.log(`Posting to primary group: ${targetGroupId}`);
+            await instance.sendImageWithCaption(targetGroupId, imagePath, caption);
+        } else {
+            console.warn('No primary group ID found for this post.');
+        }
 
         // Send to secondary group if configured (skip for Monday Market)
-        if (groupId2 && event.event_type !== 'monday_market') {
+        if (targetGroupId2 && event.event_type !== 'monday_market') {
             try {
-                await instance.sendImageWithCaption(groupId2, imagePath, caption);
-                console.log(`Also sent to secondary group: ${groupId2}`);
+                await instance.sendImageWithCaption(targetGroupId2, imagePath, caption);
+                console.log(`Also sent to secondary group: ${targetGroupId2}`);
             } catch (err2) {
-                console.error(`Failed to send to secondary group ${groupId2}:`, err2.message);
+                console.error(`Failed to send to secondary group ${targetGroupId2}:`, err2.message);
             }
         }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCcw, CheckCircle2, History, Send, Power, Plus, Trash2, User, Star } from 'lucide-react';
+import { RefreshCcw, CheckCircle2, History, Send, Power, Plus, Trash2, User, Star, Save } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -14,6 +14,8 @@ interface Profile {
     qrText: string;
     lastError: string | null;
     is_default: number;
+    group_id?: string;
+    group_id_2?: string;
 }
 
 const WhatsAppStatus = () => {
@@ -26,6 +28,16 @@ const WhatsAppStatus = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [newProfileName, setNewProfileName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+
+    // Edit Modal State
+    const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editGroupId, setEditGroupId] = useState('');
+    const [editGroupId2, setEditGroupId2] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [showGroupPicker, setShowGroupPicker] = useState<'primary' | 'secondary' | null>(null);
+    const [availableGroups, setAvailableGroups] = useState<any[]>([]);
+    const [loadingGroups, setLoadingGroups] = useState(false);
 
     useEffect(() => {
         fetchProfiles();
@@ -130,6 +142,66 @@ const WhatsAppStatus = () => {
         }
     };
 
+    const openEditModal = (profile: Profile) => {
+        setEditingProfile(profile);
+        setEditName(profile.name);
+        setEditGroupId(profile.group_id || '');
+        setEditGroupId2(profile.group_id_2 || '');
+        setShowGroupPicker(null);
+    };
+
+    const handleUpdateProfile = async () => {
+        if (!editingProfile) return;
+        setIsUpdating(true);
+        try {
+            await axios.patch(`/api/whatsapp/profiles/${editingProfile.id}`, {
+                name: editName,
+                group_id: editGroupId,
+                group_id_2: editGroupId2
+            });
+            setEditingProfile(null);
+            fetchProfiles();
+            setLogs(prev => [{
+                time: new Date().toLocaleTimeString(),
+                msg: `Profile "${editName}" updated.`,
+                type: 'info'
+            }, ...prev]);
+        } catch (error: any) {
+            alert(error.response?.data?.error || 'Failed to update profile');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const fetchGroups = async () => {
+        if (!editingProfile) return;
+        setLoadingGroups(true);
+        try {
+            const res = await axios.get(`/api/whatsapp/groups?profileId=${editingProfile.id}`);
+            setAvailableGroups(res.data);
+        } catch (error: any) {
+            console.error('Failed to load groups');
+        } finally {
+            setLoadingGroups(false);
+        }
+    };
+
+    const handleBrowseGroups = (target: 'primary' | 'secondary') => {
+        setShowGroupPicker(target);
+        if (availableGroups.length === 0) {
+            fetchGroups();
+        }
+    };
+
+    const selectGroup = (groupId: string) => {
+        if (showGroupPicker === 'primary') {
+            setEditGroupId(groupId);
+        } else {
+            setEditGroupId2(groupId);
+        }
+        setShowGroupPicker(null);
+    };
+
     if (loading) return <div className="p-8 text-center text-muted">Loading WhatsApp profiles...</div>;
 
     return (
@@ -181,6 +253,13 @@ const WhatsAppStatus = () => {
                                     className="p-2 hover:bg-primary/10 rounded-lg text-secondary transition-colors"
                                 >
                                     <RefreshCcw size={18} />
+                                </button>
+                                <button 
+                                    onClick={() => openEditModal(profile)}
+                                    title="Account Settings"
+                                    className="p-2 hover:bg-primary/10 rounded-lg text-secondary transition-colors"
+                                >
+                                    <Plus className="rotate-45" size={18} /> {/* Using Plus rotated as a settings-ish icon since I don't want to import more */}
                                 </button>
                                 <button 
                                     onClick={() => handleSetDefault(profile.id, profile.name)}
@@ -300,6 +379,120 @@ const WhatsAppStatus = () => {
                                 >
                                     {isCreating ? <RefreshCcw size={18} className="animate-spin" /> : <Plus size={18} />}
                                     {isCreating ? 'Creating...' : 'Add Account'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit / Settings Modal */}
+            {editingProfile && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="glass-card w-full max-w-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Account Settings: {editingProfile.name}</h3>
+                            <button onClick={() => setEditingProfile(null)} className="text-muted hover:text-white">✕</button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-[10px] font-bold mb-2 uppercase tracking-widest text-primary">Display Name</label>
+                                <input 
+                                    type="text" 
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm focus:border-primary outline-none transition-all"
+                                    style={{ color: 'var(--text-primary)' }}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold mb-2 uppercase tracking-widest text-primary">Primary Group ID</label>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={editGroupId}
+                                            onChange={(e) => setEditGroupId(e.target.value)}
+                                            placeholder="Group JID"
+                                            className="flex-1 bg-black/20 border border-white/10 rounded-lg p-3 text-sm focus:border-primary outline-none transition-all"
+                                            style={{ color: 'var(--text-primary)' }}
+                                        />
+                                        <button 
+                                            onClick={() => handleBrowseGroups('primary')}
+                                            disabled={editingProfile.status !== 'CONNECTED'}
+                                            className="px-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold disabled:opacity-30"
+                                        >
+                                            Browse
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold mb-2 uppercase tracking-widest text-primary">Secondary Group ID</label>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={editGroupId2}
+                                            onChange={(e) => setEditGroupId2(e.target.value)}
+                                            placeholder="Optional JID"
+                                            className="flex-1 bg-black/20 border border-white/10 rounded-lg p-3 text-sm focus:border-primary outline-none transition-all"
+                                            style={{ color: 'var(--text-primary)' }}
+                                        />
+                                        <button 
+                                            onClick={() => handleBrowseGroups('secondary')}
+                                            disabled={editingProfile.status !== 'CONNECTED'}
+                                            className="px-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold disabled:opacity-30"
+                                        >
+                                            Browse
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Inner Group Picker */}
+                            {showGroupPicker && (
+                                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-primary uppercase">Select {showGroupPicker} group</span>
+                                        <button onClick={() => setShowGroupPicker(null)} className="text-[10px] opacity-50 hover:opacity-100">Cancel</button>
+                                    </div>
+                                    {loadingGroups ? (
+                                        <div className="py-4 text-center text-xs text-muted animate-pulse">Fetching groups from WhatsApp...</div>
+                                    ) : availableGroups.length === 0 ? (
+                                        <div className="py-4 text-center text-xs text-muted">No groups found or account offline.</div>
+                                    ) : (
+                                        <div className="max-h-40 overflow-y-auto space-y-1">
+                                            {availableGroups.map(g => (
+                                                <button 
+                                                    key={g.id}
+                                                    onClick={() => selectGroup(g.id)}
+                                                    className="w-full p-2 text-left text-xs bg-white/5 hover:bg-primary/20 rounded transition-all flex justify-between"
+                                                >
+                                                    <span className="font-bold truncate">{g.name}</span>
+                                                    <span className="opacity-40 ml-2">{g.id.split('@')[0]}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4">
+                                <button 
+                                    onClick={() => setEditingProfile(null)}
+                                    className="flex-1 px-4 py-3 glass-card hover:bg-white/5 rounded-lg text-sm font-bold transition-all"
+                                    style={{ color: 'var(--text-secondary)' }}
+                                >
+                                    Close
+                                </button>
+                                <button 
+                                    onClick={handleUpdateProfile}
+                                    disabled={isUpdating}
+                                    className="flex-1 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                >
+                                    {isUpdating ? <RefreshCcw size={18} className="animate-spin" /> : <Save size={18} />}
+                                    {isUpdating ? 'Saving...' : 'Save Settings'}
                                 </button>
                             </div>
                         </div>

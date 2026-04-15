@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RefreshCw, MessageCircle, Users, Search, Instagram } from 'lucide-react';
+import { Save, RefreshCw, MessageCircle, Users, Instagram } from 'lucide-react';
 import axios from 'axios';
 
 const Settings = () => {
@@ -17,9 +17,6 @@ const Settings = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [groups, setGroups] = useState<any[]>([]);
-    const [loadingGroups, setLoadingGroups] = useState(false);
-    const [showGroupPicker, setShowGroupPicker] = useState<'primary' | 'secondary' | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -63,34 +60,6 @@ const Settings = () => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const fetchGroups = async () => {
-        setLoadingGroups(true);
-        try {
-            const res = await axios.get('/api/whatsapp/groups');
-            setGroups(res.data);
-        } catch (error: any) {
-            setMessage({ type: 'error', text: 'Failed to load groups. Is WhatsApp connected?' });
-        } finally {
-            setLoadingGroups(false);
-        }
-    };
-
-    const handleBrowseGroups = (target: 'primary' | 'secondary') => {
-        setShowGroupPicker(target);
-        if (groups.length === 0) {
-            fetchGroups();
-        }
-    };
-
-    const selectGroup = (groupId: string) => {
-        if (showGroupPicker === 'primary') {
-            setSettings({ ...settings, whatsapp_group_id: groupId });
-        } else {
-            setSettings({ ...settings, whatsapp_group_id_2: groupId });
-        }
-        setShowGroupPicker(null);
     };
 
     if (loading) {
@@ -155,101 +124,12 @@ const Settings = () => {
                     </div>
 
                     <div style={{ borderTop: '1px solid var(--border-color)' }} className="pt-6">
-                        <h3 className="text-xl font-semibold mb-6 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                            <Users className="text-primary" size={24} />
-                            WhatsApp Groups
-                        </h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                    Primary Group ID
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={settings.whatsapp_group_id}
-                                        onChange={(e) => setSettings({ ...settings, whatsapp_group_id: e.target.value })}
-                                        className="flex-1 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-                                        placeholder="e.g. 1234567890@g.us"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleBrowseGroups('primary')}
-                                        className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1 text-sm"
-                                    >
-                                        <Search size={16} /> Browse
-                                    </button>
-                                </div>
-                                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>The main group where posts will be sent.</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                    Secondary Group ID <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={settings.whatsapp_group_id_2}
-                                        onChange={(e) => setSettings({ ...settings, whatsapp_group_id_2: e.target.value })}
-                                        className="flex-1 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-                                        placeholder="e.g. 9876543210@g.us"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleBrowseGroups('secondary')}
-                                        className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1 text-sm"
-                                    >
-                                        <Search size={16} /> Browse
-                                    </button>
-                                </div>
-                                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Posts will also be sent to this group if configured.</p>
-                            </div>
+                        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 text-sm mb-6">
+                            <p className="font-semibold mb-1 flex items-center gap-2">
+                                <Users size={16} /> WhatsApp Group Targeting:
+                            </p>
+                            <p>Group settings have been moved! You can now configure Primary and Secondary groups for **each WhatsApp account individually** in the **WhatsApp Accounts** tab.</p>
                         </div>
-
-                        {/* Group Picker Modal */}
-                        {showGroupPicker && (
-                            <div className="mt-4 glass-card p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-                                        Select a group for {showGroupPicker === 'primary' ? 'Primary' : 'Secondary'}
-                                    </h4>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowGroupPicker(null)}
-                                        className="text-xs px-2 py-1 rounded hover:bg-red-500/10 text-red-400"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                                {loadingGroups ? (
-                                    <div className="flex items-center gap-2 py-4 justify-center">
-                                        <RefreshCw size={16} className="animate-spin text-primary" />
-                                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading groups...</span>
-                                    </div>
-                                ) : groups.length === 0 ? (
-                                    <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No groups found. Make sure WhatsApp is connected.</p>
-                                ) : (
-                                    <div className="max-h-60 overflow-y-auto space-y-1">
-                                        {groups.map((g: any) => (
-                                            <button
-                                                key={g.id}
-                                                type="button"
-                                                onClick={() => selectGroup(g.id)}
-                                                className="w-full flex items-center justify-between p-3 rounded-lg text-left text-sm transition-colors hover:bg-primary/10"
-                                                style={{ color: 'var(--text-primary)' }}
-                                            >
-                                                <span className="font-medium">{g.name}</span>
-                                                <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{g.id}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     <div style={{ borderTop: '1px solid var(--border-color)' }} className="pt-6">
