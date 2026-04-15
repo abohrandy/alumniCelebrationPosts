@@ -26,7 +26,7 @@ function getIo() {
 
 function emitStatus(status) {
     if (io) {
-        io.emit('whatsapp_status', status);
+        io.emit('whatsapp_status_update', status);
     }
 }
 
