@@ -269,6 +269,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         ? events
         : filterType === 'recurring'
             ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'recurrent_announcement')
+            : filterType === 'recurrent_announcement'
+                ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'recurrent_announcement')
             : events.filter(e => e.event_type === filterType))
         .sort((a, b) => {
             let comparison = 0;
