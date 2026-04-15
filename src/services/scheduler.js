@@ -402,8 +402,18 @@ async function sendPost(event, _isRetry = false) {
 
         // 2. Determine target groups (Fetch from profile, fall back to global settings)
         const dbProfile = await db.get('SELECT group_id, group_id_2 FROM whatsapp_profiles WHERE id = ?', [instance.id]);
-        const targetGroupId = (dbProfile && dbProfile.group_id) ? dbProfile.group_id : groupId;
-        const targetGroupId2 = (dbProfile && dbProfile.group_id_2) ? dbProfile.group_id_2 : groupId2;
+        
+        let targetGroupId = groupId;
+        let targetGroupId2 = groupId2;
+
+        // If profile exists, its settings completely override global ones (even if they are empty strings)
+        if (dbProfile) {
+            targetGroupId = dbProfile.group_id;
+            targetGroupId2 = dbProfile.group_id_2;
+            
+            // Fallback for primary group only if the profile completely lacks one but global exists
+            if (!targetGroupId && groupId) targetGroupId = groupId; 
+        }
 
         console.log(`Sending post for ${displayName} via account [${instance.name}]`);
 
@@ -415,8 +425,8 @@ async function sendPost(event, _isRetry = false) {
             console.warn('No primary group ID found for this post.');
         }
 
-        // Send to secondary group if configured (skip for Recurrent Announcements)
-        if (targetGroupId2 && event.event_type !== 'monday_market' && event.event_type !== 'recurrent_announcement') {
+        // Send to secondary group if configured (skip for legacy monday_market)
+        if (targetGroupId2 && event.event_type !== 'monday_market') {
             try {
                 await instance.sendImageWithCaption(targetGroupId2, imagePath, caption);
                 console.log(`Also sent to secondary group: ${targetGroupId2}`);
