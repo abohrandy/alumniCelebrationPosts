@@ -631,41 +631,51 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             </div>
 
                             {/* Status + Actions */}
-                            <div className="flex items-center justify-between sm:justify-end gap-2 pl-[60px] sm:pl-0">
-                                <button
-                                    onClick={() => handleToggleStatus(event.id)}
-                                    className={`px-3 py-1 rounded-full text-[10px] lg:text-xs font-medium cursor-pointer transition-colors ${event.status === 'active'
-                                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                                        : 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30'
-                                        }`}
-                                >
-                                    {event.status}
-                                </button>
+                            <div className="flex flex-col sm:items-end gap-2 pl-[60px] sm:pl-0">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                        {event.status === 'active' ? 'Posting Active' : 'Posting Paused'}
+                                    </span>
+                                    <button
+                                        onClick={() => handleToggleStatus(event.id)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${event.status === 'active' ? 'bg-emerald-500' : 'bg-slate-700'
+                                            }`}
+                                    >
+                                        <span
+                                            className={`${event.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                                                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                                        />
+                                    </button>
+                                </div>
 
-                                <div className="flex items-center gap-0.5">
+                                <div className="flex items-center gap-1 sm:gap-0.5 mt-1">
                                     <button onClick={() => setViewingEvent(event)}
-                                        className="p-1.5 lg:p-2 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                        className="p-1.5 lg:p-2 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1"
                                         style={{ color: 'var(--text-secondary)' }}
                                         title="View Details">
                                         <Eye size={14} />
+                                        <span className="sm:hidden text-xs">View</span>
                                     </button>
                                     <button onClick={() => handlePostNow(event.id)}
-                                        className="p-1.5 lg:p-2 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
+                                        className="p-1.5 lg:p-2 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors flex items-center gap-1"
                                         style={{ color: 'var(--text-secondary)' }}
                                         title="Post Now">
                                         <Send size={14} />
+                                        <span className="sm:hidden text-xs">Post</span>
                                     </button>
                                     <button onClick={() => openEditForm(event)}
-                                        className="p-1.5 lg:p-2 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                        className="p-1.5 lg:p-2 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1"
                                         style={{ color: 'var(--text-secondary)' }}
                                         title="Edit">
                                         <Edit size={14} />
+                                        <span className="sm:hidden text-xs">Edit</span>
                                     </button>
                                     <button onClick={() => handleDelete(event.id)}
-                                        className="p-1.5 lg:p-2 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        className="p-1.5 lg:p-2 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1"
                                         style={{ color: 'var(--text-secondary)' }}
                                         title="Delete">
                                         <Trash2 size={14} />
+                                        <span className="sm:hidden text-xs">Del</span>
                                     </button>
                                 </div>
                             </div>
