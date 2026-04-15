@@ -153,8 +153,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setTitle(event.title || '');
         setCaption(event.caption || event.message_template || '');
         setEventDate(event.event_date || '');
-        setScheduleType(event.schedule_type || 'single_date');
-        setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : '');
+        setScheduleType(event.event_type === 'recurrent_announcement' ? 'interval' : (event.schedule_type || 'single_date'));
+        setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : (event.event_type === 'recurrent_announcement' ? '7' : ''));
         setPostTime(event.post_time || '06:00');
         setExpiryDate(event.expiry_date || '');
         setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
@@ -369,8 +369,6 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         const type = e.target.value;
                                         if (type === 'birthday' || type === 'wedding_anniversary' || type === 'one_day_event') {
                                             setScheduleType('single_date');
-                                        } else if (type === 'recurrent_announcement') {
-                                            setScheduleType('weekly');
                                         } else {
                                             setScheduleType('interval');
                                         }
@@ -421,7 +419,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
 
-                                    {eventType === 'announcement' && (
+                                    {(eventType === 'announcement' || eventType === 'recurrent_announcement') && (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
@@ -442,11 +440,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         </div>
                                     )}
 
-                                    {eventType === 'recurrent_announcement' && (
-                                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
-                                            📅 Posts automatically every <strong>Monday at 5:00 AM</strong> (Round Robin)
-                                        </div>
-                                    )}
+
 
                                     {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
                                         <div className="space-y-3 mt-4">
@@ -491,7 +485,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </>
                             )}
 
-                            {eventType === 'announcement' && (
+                            {(eventType === 'announcement' || eventType === 'recurrent_announcement') && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Expiry Date (Stop announcing after this date)</label>
                                     <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)}
