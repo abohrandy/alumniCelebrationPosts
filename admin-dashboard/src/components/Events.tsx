@@ -20,6 +20,8 @@ interface EventItem {
     creator_name: string | null;
     created_at: string;
     whatsapp_profile_id: number | null;
+    images?: Array<{ image_path: string; sort_order: number }>;
+    captions?: Array<{ caption_text: string; sort_order: number }>;
 }
 
 interface WhatsAppProfile {
@@ -34,19 +36,21 @@ const isVideoFile = (path: string | null | undefined) => {
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-    birthday: '🎂 Birthday',
-    wedding_anniversary: '💍 Wedding Anniversary',
-    one_day_event: '✨ One Day Event',
-    monday_market: '🛒 Monday Market',
-    announcement: '📢 Announcement'
+    birthday: 'Birthday',
+    wedding_anniversary: 'Wedding Anniversary',
+    one_day_event: 'Single Day Event',
+    monday_market: 'Recurrent Announcement',
+    recurrent_announcement: 'Recurrent Announcement',
+    announcement: 'Announcement'
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-    birthday: 'bg-pink-500/20 text-pink-400',
-    wedding_anniversary: 'bg-purple-500/20 text-purple-400',
-    one_day_event: 'bg-amber-500/20 text-amber-400',
-    monday_market: 'bg-green-500/20 text-green-400',
-    announcement: 'bg-blue-500/20 text-blue-400'
+    birthday: 'bg-pink-500/20 text-pink-500',
+    wedding_anniversary: 'bg-purple-500/20 text-purple-500',
+    one_day_event: 'bg-amber-500/20 text-amber-500',
+    monday_market: 'bg-emerald-500/20 text-emerald-500',
+    recurrent_announcement: 'bg-emerald-500/20 text-emerald-500',
+    announcement: 'bg-blue-500/20 text-blue-500'
 };
 
 interface EventsProps {
@@ -72,6 +76,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [phoneNumber, setPhoneNumber] = useState('');
     const [title, setTitle] = useState('');
     const [caption, setCaption] = useState('');
+    const [captions, setCaptions] = useState<string[]>(['']); // For Recurrent Announcements
     const [eventDate, setEventDate] = useState('');
     const [scheduleType, setScheduleType] = useState('single_date');
     const [repeatInterval, setRepeatInterval] = useState('');
@@ -118,6 +123,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPhoneNumber('');
         setTitle('');
         setCaption('');
+        setCaptions(['']);
         setEventDate('');
         setScheduleType('single_date');
         setRepeatInterval('');
@@ -153,6 +159,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setExpiryDate(event.expiry_date || '');
         setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
         setSelectedProfileId(event.whatsapp_profile_id ? String(event.whatsapp_profile_id) : '');
+        
+        if (event.captions && (event.event_type === 'recurrent_announcement' || event.event_type === 'monday_market')) {
+            setCaptions(event.captions.map((c: any) => c.caption_text));
+        } else {
+            setCaptions(['']);
+        }
+
         setShowForm(true);
     };
 
@@ -190,7 +203,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 if (expiryDate) formData.append('expiry_date', expiryDate);
             }
 
-            formData.append('caption', caption);
+            if (eventType === 'recurrent_announcement' || eventType === 'monday_market') {
+                captions.forEach(cap => {
+                    if (cap.trim()) formData.append('captions', cap.trim());
+                });
+            } else {
+                formData.append('caption', caption);
+            }
 
             if (imageFiles.length > 0) {
                 imageFiles.forEach(file => {
@@ -249,7 +268,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const filteredEvents = (filterType === 'all'
         ? events
         : filterType === 'recurring'
-            ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'announcement')
+            ? events.filter(e => e.event_type === 'monday_market' || e.event_type === 'recurrent_announcement')
             : events.filter(e => e.event_type === filterType))
         .sort((a, b) => {
             let comparison = 0;
@@ -291,9 +310,9 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                     <option value="birthday">Birthdays</option>
                     <option value="wedding_anniversary">Weddings</option>
                     <option value="one_day_event">One Day Events</option>
-                    <option value="monday_market">Monday Market</option>
+                    <option value="recurrent_announcement">Recurrent Announcements</option>
                     <option value="announcement">Announcements</option>
-                    <option value="recurring">Recurring (Market/Announce)</option>
+                    <option value="recurring">Recurring (All)</option>
                 </select>
 
                 <div className="flex items-center gap-2">
@@ -348,9 +367,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         const type = e.target.value;
                                         if (type === 'birthday' || type === 'wedding_anniversary' || type === 'one_day_event') {
                                             setScheduleType('single_date');
-                                        } else if (type === 'monday_market') {
+                                        } else if (type === 'recurrent_announcement') {
                                             setScheduleType('weekly');
-                                            setPostTime('05:00');
                                         } else {
                                             setScheduleType('interval');
                                         }
@@ -361,7 +379,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <option value="birthday">🎂 Birthday</option>
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
                                     <option value="one_day_event">✨ One Day Event</option>
-                                    <option value="monday_market">🛒 Monday Market</option>
+                                    <option value="recurrent_announcement">🔄 Recurrent Announcement</option>
                                     <option value="announcement">📢 Announcement</option>
                                 </select>
                             </div>
@@ -422,9 +440,50 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         </div>
                                     )}
 
-                                    {eventType === 'monday_market' && (
-                                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-sm text-green-400">
-                                            📅 Posts automatically every <strong>Monday at 5:00 AM</strong>
+                                    {eventType === 'recurrent_announcement' && (
+                                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
+                                            📅 Posts automatically every <strong>Monday at 5:00 AM</strong> (Round Robin)
+                                        </div>
+                                    )}
+
+                                    {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                                        <div className="space-y-3 mt-4">
+                                            <label className="block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                                <Send size={14} className="inline mr-1" />
+                                                Text Variations (Round Robin)
+                                            </label>
+                                            {captions.map((cap, idx) => (
+                                                <div key={idx} className="flex gap-2">
+                                                    <textarea
+                                                        value={cap}
+                                                        onChange={(e) => {
+                                                            const newCaps = [...captions];
+                                                            newCaps[idx] = e.target.value;
+                                                            setCaptions(newCaps);
+                                                        }}
+                                                        placeholder={`Variation ${idx + 1}`}
+                                                        className="w-full rounded-lg px-3 py-2 text-sm"
+                                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', minHeight: '60px' }}
+                                                    />
+                                                    {captions.length > 1 && (
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setCaptions(captions.filter((_, i) => i !== idx))}
+                                                            className="p-2 h-10 self-center text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setCaptions([...captions, ''])}
+                                                className="flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity"
+                                            >
+                                                <Plus size={14} />
+                                                Add Another Text Variation
+                                            </button>
                                         </div>
                                     )}
                                 </>
@@ -441,21 +500,22 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </div>
                             )}
 
-                            {/* Caption */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
-                                <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3}
-                                    placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name and {phone} for phone number.' : 'Enter post caption...'}
-                                    className="w-full rounded-lg px-3 py-2 resize-y min-h-[80px]" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
-                            </div>
+                            {!(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
+                                    <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3}
+                                        placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name and {phone} for phone number.' : 'Enter post caption...'}
+                                        className="w-full rounded-lg px-3 py-2 resize-y min-h-[80px]" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
-                                    Design Image or Video {eventType === 'monday_market' ? '(Select Multiple)' : ''}
+                                    Design Image or Video {(eventType === 'monday_market' || eventType === 'recurrent_announcement') ? '(Select Multiple)' : ''}
                                 </label>
                                 <input type="file" accept="image/*,video/*"
-                                    multiple={eventType === 'monday_market'}
+                                    multiple={eventType === 'monday_market' || eventType === 'recurrent_announcement'}
                                     onChange={handleImageChange}
                                     className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-medium file:cursor-pointer"
                                     required={!editingId} />
@@ -517,7 +577,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 <div className={`p-2 rounded-lg ${EVENT_TYPE_COLORS[viewingEvent.event_type]}`}>
                                     {viewingEvent.event_type === 'birthday' && <Calendar size={20} />}
                                     {viewingEvent.event_type === 'wedding_anniversary' && <Plus size={20} />}
-                                    {viewingEvent.event_type === 'monday_market' && <Repeat size={20} />}
+                                    {(viewingEvent.event_type === 'monday_market' || viewingEvent.event_type === 'recurrent_announcement') && <Repeat size={20} />}
                                     {viewingEvent.event_type === 'announcement' && <Send size={20} />}
                                 </div>
                                 <div>
@@ -532,25 +592,46 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
                         {/* Modal Content */}
                         <div className="p-6 space-y-8">
-                            {/* Main Image */}
-                            {viewingEvent.design_image_path && (
-                                <div className="relative group">
-                                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                                    {isVideoFile(viewingEvent.design_image_path) ? (
-                                        <video
-                                            src={`/${viewingEvent.design_image_path}`}
-                                            controls
-                                            className="relative w-full h-auto max-h-[60vh] object-contain bg-black rounded-xl border border-white/10 shadow-2xl"
-                                        />
+                            {/* Images Section */}
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                                    {(viewingEvent?.images && viewingEvent.images.length > 1) ? `Image Variations (${viewingEvent.images.length})` : 'Design Image'}
+                                </h4>
+                                <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+                                    {(viewingEvent?.images && viewingEvent.images.length > 0) ? (
+                                        viewingEvent.images.map((img: any, idx: number) => (
+                                            <div key={idx} className="relative flex-none w-full snap-center group">
+                                                <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                                                {isVideoFile(img.image_path) ? (
+                                                    <video src={`/${img.image_path}`} controls className="relative w-full h-auto max-h-[60vh] object-contain bg-black rounded-xl border border-white/10 shadow-2xl" />
+                                                ) : (
+                                                    <img src={`/${img.image_path}`} alt="" className="relative w-full h-auto max-h-[60vh] object-contain bg-black/20 rounded-xl border border-white/10 shadow-2xl" />
+                                                )}
+                                                {viewingEvent.images && viewingEvent.images.length > 1 && (
+                                                    <span className="absolute bottom-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] text-white font-bold border border-white/10">
+                                                        VARIATION {idx + 1}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))
                                     ) : (
-                                        <img
-                                            src={`/${viewingEvent.design_image_path}`}
-                                            alt=""
-                                            className="relative w-full h-auto max-h-[60vh] object-contain bg-black/20 rounded-xl border border-white/10 shadow-2xl"
-                                        />
+                                        viewingEvent?.design_image_path ? (
+                                            <div className="relative w-full group">
+                                                <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                                                {isVideoFile(viewingEvent.design_image_path) ? (
+                                                    <video src={`/${viewingEvent.design_image_path}`} controls className="relative w-full h-auto max-h-[60vh] object-contain bg-black rounded-xl border border-white/10 shadow-2xl" />
+                                                ) : (
+                                                    <img src={`/${viewingEvent.design_image_path}`} alt="" className="relative w-full h-auto max-h-[60vh] object-contain bg-black/20 rounded-xl border border-white/10 shadow-2xl" />
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-48 bg-slate-900 rounded-xl flex items-center justify-center text-slate-500 border border-white/5 border-dashed">
+                                                No visuals provided
+                                            </div>
+                                        )
                                     )}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Info Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -622,13 +703,26 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </div>
                             </div>
 
-                            {/* Caption/Message Overlay */}
+                            {/* Captions Section */}
                             <div className="space-y-4">
-                                <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Caption / Message Draft</h4>
-                                <div className="p-4 rounded-xl bg-white/5 border border-white/10 italic text-slate-300 text-sm leading-relaxed relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-2 text-slate-600 opacity-20"><Send size={40} /></div>
-                                    {viewingEvent.caption || viewingEvent.message_template || (
-                                        <span className="text-slate-600">No caption provided. Using system default.</span>
+                                <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                                    {(viewingEvent?.captions && viewingEvent.captions.length > 1) ? `Text Variations (${viewingEvent.captions.length})` : 'Caption / Message Draft'}
+                                </h4>
+                                <div className="space-y-3">
+                                    {(viewingEvent?.captions && viewingEvent.captions.length > 0) ? (
+                                        viewingEvent.captions.map((cap: any, idx: number) => (
+                                            <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 italic text-slate-300 text-sm leading-relaxed relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 p-2 text-slate-600 opacity-20 text-[10px] font-bold">VARIATION {idx + 1}</div>
+                                                {cap.caption_text}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/10 italic text-slate-300 text-sm leading-relaxed relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 text-slate-600 opacity-20"><Send size={40} /></div>
+                                            {(viewingEvent?.caption || viewingEvent?.message_template) || (
+                                                <span className="text-slate-600">No caption provided. Using system default.</span>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>

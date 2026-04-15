@@ -184,44 +184,63 @@ async function processWeeklyEvents() {
 
         const events = await db.all(
             `SELECT * FROM events 
-             WHERE event_type = 'monday_market' 
+             WHERE event_type IN ('monday_market', 'recurrent_announcement')
              AND schedule_type = 'weekly'
              AND status = 'active'
              ORDER BY created_at ASC`
         );
 
         if (events.length === 0) {
-            console.log('No Monday Market events to post.');
+            console.log('No weekly recurrent events to post.');
             return;
         }
 
-        console.log(`Posting ${events.length} Monday Market events...`);
+        console.log(`Processing ${events.length} weekly recurrent events...`);
 
         for (const event of events) {
-            // Get all images for this event
+            // 1. Get all images and captions for this event
             const images = await db.all(
                 'SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC',
                 [event.id]
             );
+            const captions = await db.all(
+                'SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC',
+                [event.id]
+            );
 
+            // 2. Determine which image to post
+            let selectedImagePath = event.design_image_path;
+            let nextImageIndex = event.current_image_index;
             if (images.length > 0) {
-                // Determine which image to post
-                const index = event.current_image_index % images.length;
-                const selectedImage = images[index];
-
-                // Temporarily override the event's design_image_path for sendPost
-                const eventToPost = { ...event, design_image_path: selectedImage.image_path };
-                await sendPost(eventToPost);
-
-                // Update index for next week
-                await db.run(
-                    'UPDATE events SET current_image_index = ? WHERE id = ?',
-                    [(index + 1) % images.length, event.id]
-                );
-            } else {
-                // Fallback to single image if no records in event_images
-                await sendPost(event);
+                const imgIndex = event.current_image_index % images.length;
+                selectedImagePath = images[imgIndex].image_path;
+                nextImageIndex = (imgIndex + 1) % images.length;
             }
+
+            // 3. Determine which caption to post
+            let selectedCaption = event.caption;
+            let nextCaptionIndex = event.current_caption_index || 0;
+            if (captions.length > 0) {
+                const capIndex = (event.current_caption_index || 0) % captions.length;
+                selectedCaption = captions[capIndex].caption_text;
+                nextCaptionIndex = (capIndex + 1) % captions.length;
+            }
+
+            // 4. Send the post
+            const eventToPost = { 
+                ...event, 
+                design_image_path: selectedImagePath,
+                caption: selectedCaption
+            };
+            
+            console.log(`[WA-Scheduler] Posting round-robin variation for "${event.title || event.id}" (Img: ${nextImageIndex}, Cap: ${nextCaptionIndex})`);
+            await sendPost(eventToPost);
+
+            // 5. Update indexes for next time
+            await db.run(
+                'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
+                [nextImageIndex, nextCaptionIndex, event.id]
+            );
         }
     } catch (error) {
         console.error('Error processing weekly events:', error);
@@ -281,8 +300,41 @@ async function processIntervalEvents() {
                 const daysSinceCreation = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
 
                 if (daysSinceCreation % event.repeat_interval_days === 0) {
-                    console.log(`Posting interval event: ${event.title || event.id}`);
-                    await sendPost(event);
+                    console.log(`Processing interval event: ${event.title || event.id}`);
+                    
+                    // Round Robin Logic for Interval Events
+                    const images = await db.all('SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+                    const captions = await db.all('SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+
+                    let selectedImagePath = event.design_image_path;
+                    let nextImageIndex = event.current_image_index;
+                    if (images.length > 0) {
+                        const imgIndex = event.current_image_index % images.length;
+                        selectedImagePath = images[imgIndex].image_path;
+                        nextImageIndex = (imgIndex + 1) % images.length;
+                    }
+
+                    let selectedCaption = event.caption;
+                    let nextCaptionIndex = event.current_caption_index || 0;
+                    if (captions.length > 0) {
+                        const capIndex = (event.current_caption_index || 0) % captions.length;
+                        selectedCaption = captions[capIndex].caption_text;
+                        nextCaptionIndex = (capIndex + 1) % captions.length;
+                    }
+
+                    const eventToPost = { 
+                        ...event, 
+                        design_image_path: selectedImagePath,
+                        caption: selectedCaption
+                    };
+                    
+                    await sendPost(eventToPost);
+
+                    // Update indexes
+                    await db.run(
+                        'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
+                        [nextImageIndex, nextCaptionIndex, event.id]
+                    );
                 }
             }
         }

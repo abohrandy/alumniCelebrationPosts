@@ -15,7 +15,8 @@ const eventController = {
                 full_name, phone_number,
                 caption, message_template,
                 event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
-                whatsapp_profile_id
+                whatsapp_profile_id,
+                captions // New: Array of caption strings
             } = req.body;
 
             // Backward compatibility
@@ -30,7 +31,7 @@ const eventController = {
             const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
             // Determine upload subdirectory by event type
-            const subDir = event_type === 'monday_market' ? 'market'
+            const subDir = (event_type === 'monday_market' || event_type === 'recurrent_announcement') ? 'market'
                 : event_type === 'announcement' ? 'announcements'
                     : event_type === 'wedding_anniversary' ? 'anniversaries'
                         : event_type === 'one_day_event' ? 'one_day'
@@ -55,7 +56,6 @@ const eventController = {
                         await file.mv(uploadPath);
                     }
                 } else {
-                    // For videos and other non-image files, just move them
                     await file.mv(uploadPath);
                 }
                 dbPaths.push(dbPath);
@@ -90,10 +90,30 @@ const eventController = {
 
             const eventId = result.lastID;
 
+            // Save multiple images
             for (let i = 0; i < dbPaths.length; i++) {
                 await db.run(
                     'INSERT INTO event_images (event_id, image_path, sort_order) VALUES (?, ?, ?)',
                     [eventId, dbPaths[i], i]
+                );
+            }
+
+            // Save multiple captions
+            if (captions) {
+                const captionsList = Array.isArray(captions) ? captions : [captions];
+                for (let i = 0; i < captionsList.length; i++) {
+                    if (captionsList[i] && captionsList[i].trim()) {
+                        await db.run(
+                            'INSERT INTO event_captions (event_id, caption_text, sort_order) VALUES (?, ?, ?)',
+                            [eventId, captionsList[i].trim(), i]
+                        );
+                    }
+                }
+            } else if (caption) {
+                // Fallback for single caption
+                await db.run(
+                    'INSERT INTO event_captions (event_id, caption_text, sort_order) VALUES (?, ?, ?)',
+                    [eventId, caption, 0]
                 );
             }
 
@@ -119,7 +139,8 @@ const eventController = {
                 full_name, phone_number,
                 caption, message_template,
                 event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
-                whatsapp_profile_id
+                whatsapp_profile_id,
+                captions // New: Array of caption strings
             } = req.body;
 
             const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
@@ -154,7 +175,7 @@ const eventController = {
                 const filesToProcess = Array.isArray(images) ? images : [images];
                 const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
-                const subDir = event_type === 'monday_market' ? 'market'
+                const subDir = (event_type === 'monday_market' || event_type === 'recurrent_announcement') ? 'market'
                     : event_type === 'announcement' ? 'announcements'
                         : event_type === 'wedding_anniversary' ? 'anniversaries'
                         : event_type === 'one_day_event' ? 'one_day'
@@ -181,14 +202,12 @@ const eventController = {
                     } else {
                         await file.mv(uploadPath);
                     }
-
                     dbPaths.push(dbPath);
                 }
 
                 updateQuery += `, design_image_path = ?`;
                 queryParams.push(dbPaths[0]);
 
-                // Clear old images for this event and add new ones (Overwrite approach)
                 await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
                 for (let i = 0; i < dbPaths.length; i++) {
                     await db.run(
@@ -196,8 +215,24 @@ const eventController = {
                         [id, dbPaths[i], i]
                     );
                 }
-                // Reset index if images changed
                 updateQuery += `, current_image_index = 0`;
+            }
+
+            if (captions) {
+                await db.run('DELETE FROM event_captions WHERE event_id = ?', [id]);
+                const captionsList = Array.isArray(captions) ? captions : [captions];
+                for (let i = 0; i < captionsList.length; i++) {
+                    if (captionsList[i] && captionsList[i].trim()) {
+                        await db.run(
+                            'INSERT INTO event_captions (event_id, caption_text, sort_order) VALUES (?, ?, ?)',
+                            [id, captionsList[i].trim(), i]
+                        );
+                    }
+                }
+                updateQuery += `, current_caption_index = 0`;
+            } else if (caption) {
+                 updateQuery += `, caption = ?`;
+                 queryParams.push(caption);
             }
 
             updateQuery += ` WHERE id = ?`;
@@ -226,6 +261,13 @@ const eventController = {
                 LEFT JOIN users u ON e.created_by = u.id 
                 ORDER BY e.created_at DESC
             `);
+
+            // Fetch images and captions for each event
+            for (const event of events) {
+                event.images = await db.all("SELECT image_path, sort_order FROM event_images WHERE event_id = ? ORDER BY sort_order ASC", [event.id]);
+                event.captions = await db.all("SELECT caption_text, sort_order FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC", [event.id]);
+            }
+
             res.json(events);
         } catch (error) {
             res.status(500).json({ error: 'Internal server error.' });
@@ -236,22 +278,8 @@ const eventController = {
         try {
             const { id } = req.params;
             const db = await initDb();
-
-            const event = await db.get("SELECT design_image_path FROM events WHERE id = ?", [id]);
-            if (event && event.design_image_path) {
-                const fullPath = process.env.DATA_DIR
-                    ? path.join(process.env.DATA_DIR, event.design_image_path.replace('uploads/', ''))
-                    : event.design_image_path;
-                if (fs.existsSync(fullPath)) {
-                    fs.unlinkSync(fullPath);
-                }
-            }
-
             await db.run("DELETE FROM events WHERE id = ?", [id]);
             emitStats({ action: 'delete' });
-
-            const userId = req.user ? req.user.id : null;
-            await logActivity(userId, 'delete_event', parseInt(id), `Deleted event ID ${id}`, { id });
             res.json({ message: 'Event deleted.' });
         } catch (error) {
             res.status(500).json({ error: 'Internal server error.' });
@@ -262,24 +290,12 @@ const eventController = {
         try {
             const { id } = req.params;
             const db = await initDb();
-            const event = await db.get("SELECT status, full_name, title, event_type FROM events WHERE id = ?", [id]);
+            const event = await db.get("SELECT status FROM events WHERE id = ?", [id]);
             if (!event) return res.status(404).json({ error: 'Event not found' });
-
             const newStatus = event.status === 'active' ? 'inactive' : 'active';
-            const eventName = event.full_name || event.title || event.event_type;
-
             await db.run("UPDATE events SET status = ? WHERE id = ?", [newStatus, id]);
-
-            const userId = req.user ? req.user.id : null;
-            await logActivity(userId, 'toggle_status', parseInt(id), `Toggled event "${eventName}" to ${newStatus}`, {
-                event_id: id,
-                event_name: eventName,
-                new_status: newStatus
-            });
-
             res.json({ id, status: newStatus });
         } catch (error) {
-            console.error('Error in toggleStatus:', error);
             res.status(500).json({ error: 'Internal server error.' });
         }
     },
@@ -289,24 +305,11 @@ const eventController = {
             const { id } = req.params;
             const db = await initDb();
             const event = await db.get("SELECT * FROM events WHERE id = ?", [id]);
-
-            if (!event) {
-                return res.status(404).json({ error: 'Event not found.' });
-            }
-
+            if (!event) return res.status(404).json({ error: 'Event not found.' });
             const { sendPost } = require('../services/scheduler');
             setImmediate(() => sendPost(event));
-
-            const eventName = event.full_name || event.title || event.event_type;
-            const userId = req.user ? req.user.id : null;
-            await logActivity(userId, 'manual_post_triggered', parseInt(id), `Admin triggered manual post for "${eventName}"`, {
-                event_id: id,
-                event_name: eventName
-            });
-
-            res.json({ message: 'Post request initiated. Check recent logs for status.' });
+            res.json({ message: 'Post request initiated.' });
         } catch (error) {
-            console.error('Error in postNow:', error);
             res.status(500).json({ error: 'Internal server error.' });
         }
     }

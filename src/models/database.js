@@ -71,7 +71,7 @@ async function initDb() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name TEXT,
                 phone_number TEXT,
-                event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement', 'one_day_event')),
+                event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'recurrent_announcement', 'announcement', 'one_day_event')),
                 event_date TEXT,
                 design_image_path TEXT,
                 caption TEXT,
@@ -80,6 +80,7 @@ async function initDb() {
                 repeat_interval_days INTEGER,
                 post_time TEXT DEFAULT '06:00',
                 current_image_index INTEGER DEFAULT 0,
+                current_caption_index INTEGER DEFAULT 0,
                 created_by INTEGER REFERENCES users(id),
                 status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                 expiry_date TEXT,
@@ -94,6 +95,17 @@ async function initDb() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
                 image_path TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // ── Event Captions table (for text rotation) ──
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS event_captions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                caption_text TEXT NOT NULL,
                 sort_order INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -147,6 +159,37 @@ async function initDb() {
         }
         if (!columnNames.includes('repeat_interval_days')) {
             await db.exec("ALTER TABLE events ADD COLUMN repeat_interval_days INTEGER");
+        }
+        if (!columnNames.includes('current_caption_index')) {
+            await db.exec("ALTER TABLE events ADD COLUMN current_caption_index INTEGER DEFAULT 0");
+        }
+        
+        // Ensure event_captions table exists even in evolved DBs
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS event_captions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                caption_text TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Migration: Rename monday_market to recurrent_announcement and move captions
+        try {
+            // Move existing captions to event_captions table if they haven't been moved
+            const existingItems = await db.all("SELECT id, caption FROM events WHERE event_type = 'monday_market' AND caption IS NOT NULL AND caption != ''");
+            for (const item of existingItems) {
+                const count = await db.get("SELECT COUNT(*) as count FROM event_captions WHERE event_id = ?", [item.id]);
+                if (count.count === 0) {
+                    await db.run("INSERT INTO event_captions (event_id, caption_text) VALUES (?, ?)", [item.id, item.caption]);
+                }
+            }
+            
+            // Rename type
+            await db.run("UPDATE events SET event_type = 'recurrent_announcement' WHERE event_type = 'monday_market'");
+        } catch (e) {
+            console.error('Migration to recurrent_announcement partially failed (likely constraint):', e.message);
         }
         if (!columnNames.includes('post_time')) {
             await db.exec("ALTER TABLE events ADD COLUMN post_time TEXT DEFAULT '06:00'");
@@ -202,7 +245,7 @@ async function initDb() {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     full_name TEXT,
                     phone_number TEXT,
-                    event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'announcement', 'one_day_event')),
+                    event_type TEXT NOT NULL CHECK(event_type IN ('birthday', 'wedding_anniversary', 'monday_market', 'recurrent_announcement', 'announcement', 'one_day_event')),
                     event_date TEXT,
                     design_image_path TEXT,
                     caption TEXT,
@@ -211,6 +254,7 @@ async function initDb() {
                     repeat_interval_days INTEGER,
                     post_time TEXT DEFAULT '06:00',
                     current_image_index INTEGER DEFAULT 0,
+                    current_caption_index INTEGER DEFAULT 0,
                     created_by INTEGER REFERENCES users(id),
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                     expiry_date TEXT,
@@ -230,7 +274,7 @@ async function initDb() {
                     id, full_name, phone_number,
                     event_type, event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, current_image_index, created_by, status, expiry_date, repeat_annually, created_at
+                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, repeat_annually, created_at
                 )
                 SELECT
                     id,
@@ -239,10 +283,11 @@ async function initDb() {
                     CASE
                         WHEN event_type = 'Birthday' THEN 'birthday'
                         WHEN event_type = 'Wedding Anniversary' THEN 'wedding_anniversary'
-                        ELSE LOWER(event_type)\n                    END,
+                        ELSE LOWER(event_type)
+                    END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, 0, created_by, status, expiry_date, 0, created_at
+                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, 0, created_at
                 FROM events
             `);
 
