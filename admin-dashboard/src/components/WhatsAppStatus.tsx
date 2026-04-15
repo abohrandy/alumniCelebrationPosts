@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCcw, CheckCircle2, History, Send, Power, Plus, Trash2, User, Star, Save } from 'lucide-react';
+import { RefreshCcw, CheckCircle2, History, Send, Power, Plus, Trash2, User, Star, Save, Settings } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -259,7 +259,7 @@ const WhatsAppStatus = () => {
                                     title="Account Settings"
                                     className="p-2 hover:bg-primary/10 rounded-lg text-secondary transition-colors"
                                 >
-                                    <Plus className="rotate-45" size={18} /> {/* Using Plus rotated as a settings-ish icon since I don't want to import more */}
+                                    <Settings size={18} />
                                 </button>
                                 <button 
                                     onClick={() => handleSetDefault(profile.id, profile.name)}
