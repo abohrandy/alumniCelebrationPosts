@@ -153,7 +153,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setTitle(event.title || '');
         setCaption(event.caption || event.message_template || '');
         setEventDate(event.event_date || '');
-        setScheduleType(event.event_type === 'recurrent_announcement' ? 'interval' : (event.schedule_type || 'single_date'));
+        setScheduleType(event.event_type === 'recurrent_announcement' ? 'interval' : (event.event_type === 'monday_market' ? 'weekly' : (event.schedule_type || 'single_date')));
         setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : (event.event_type === 'recurrent_announcement' ? '7' : ''));
         setPostTime(event.post_time || '06:00');
         setExpiryDate(event.expiry_date || '');
@@ -369,6 +369,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         const type = e.target.value;
                                         if (type === 'birthday' || type === 'wedding_anniversary' || type === 'one_day_event') {
                                             setScheduleType('single_date');
+                                        } else if (type === 'monday_market') {
+                                            setScheduleType('weekly');
                                         } else {
                                             setScheduleType('interval');
                                         }
@@ -380,6 +382,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
                                     <option value="one_day_event">✨ One Day Event</option>
                                     <option value="recurrent_announcement">🔄 Recurrent Announcement</option>
+                                    <option value="monday_market">📈 Monday Market</option>
                                     <option value="announcement">📢 Announcement</option>
                                 </select>
                             </div>
@@ -439,8 +442,12 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             </div>
                                         </div>
                                     )}
-
-
+                                    
+                                    {eventType === 'monday_market' && (
+                                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
+                                            📅 Posts automatically every <strong>Monday at 5:00 AM</strong> to the First Group ONLY (Round Robin)
+                                        </div>
+                                    )}
 
                                     {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
                                         <div className="space-y-3 mt-4">

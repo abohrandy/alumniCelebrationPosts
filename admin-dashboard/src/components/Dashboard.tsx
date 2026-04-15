@@ -51,7 +51,8 @@ function Dashboard({ onNavigate }: DashboardProps) {
     const activeEvents = events.filter(e => e.status === 'active');
     const birthdays = events.filter(e => e.event_type === 'birthday');
     const weddings = events.filter(e => e.event_type === 'wedding_anniversary');
-    const markets = events.filter(e => e.event_type === 'monday_market' || e.event_type === 'recurrent_announcement');
+    const markets = events.filter(e => e.event_type === 'monday_market');
+    const recurrents = events.filter(e => e.event_type === 'recurrent_announcement');
     const announcements = events.filter(e => e.event_type === 'announcement');
     const oneDayEvents = events.filter(e => e.event_type === 'one_day_event');
 
@@ -59,7 +60,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
         { label: 'Total Events', value: events.length, icon: CalendarDays, color: 'text-primary', filter: 'all' },
         { label: 'Active Events', value: activeEvents.length, icon: TrendingUp, color: 'text-emerald-400', filter: 'all' },
         { label: 'Birthdays', value: birthdays.length, icon: Users, color: 'text-pink-400', filter: 'birthday' },
-        { label: 'Recurring', value: markets.length + announcements.length, icon: Send, color: 'text-blue-400', filter: 'recurring' },
+        { label: 'Recurring', value: markets.length + recurrents.length + announcements.length, icon: Send, color: 'text-blue-400', filter: 'recurring' },
     ];
 
     const getName = (e: EventItem) => {
@@ -167,12 +168,13 @@ function Dashboard({ onNavigate }: DashboardProps) {
             {/* Event Type Breakdown */}
             <div className="glass-card p-4 lg:p-6">
                 <h3 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4" style={{ color: 'var(--text-primary)' }}>Events by Type</h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
                     {[
                         { type: 'birthday', label: '🎂 Birthdays', count: birthdays.length },
                         { type: 'wedding_anniversary', label: '💍 Weddings', count: weddings.length },
                         { type: 'one_day_event', label: '✨ Events', count: oneDayEvents.length },
-                        { type: 'recurrent_announcement', label: '🔄 Recurrent', count: markets.length },
+                        { type: 'monday_market', label: '📈 Monday M.', count: markets.length },
+                        { type: 'recurrent_announcement', label: '🔄 Recurrent', count: recurrents.length },
                         { type: 'announcement', label: '📢 Announcements', count: announcements.length },
                     ].map(item => (
                         <div
