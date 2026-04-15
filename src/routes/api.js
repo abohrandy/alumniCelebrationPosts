@@ -160,11 +160,11 @@ router.get('/whatsapp/groups', requireAdmin, async (req, res) => {
 
 router.get('/whatsapp/chats', requireAuth, async (req, res) => {
     try {
-        if (!waClient.client || waClient.status !== 'CONNECTED') {
+        if (waClient.status !== 'CONNECTED') {
             return res.status(400).json({ error: 'WhatsApp is not connected' });
         }
-        const chats = await waClient.client.getChats();
-        const simplifiedChats = chats.map(c => ({ id: c.id._serialized, name: c.name, isGroup: c.isGroup }));
+        const groups = await waClient.getGroups();
+        const simplifiedChats = groups.map(g => ({ id: g.id, name: g.name, isGroup: true }));
         res.json(simplifiedChats);
     } catch (error) {
         console.error('Error getting chats:', error);

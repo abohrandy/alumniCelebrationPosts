@@ -1,59 +1,45 @@
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+/**
+ * WhatsApp Service — powered by @whiskeysockets/baileys
+ *
+ * Pure WebSocket implementation. No Chromium, no Puppeteer, no browser.
+ * This eliminates all memory pressure, detached frame errors, and startup hangs.
+ *
+ * Exported interface is identical to the old whatsapp-web.js version so that
+ * api.js and scheduler.js require zero changes.
+ */
+
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
-console.log('--- WHATSAPP SERVICE MODULE LOADED at ' + new Date().toLocaleTimeString() + ' ---');
+const pino = require('pino');
+
+console.log('--- WHATSAPP SERVICE (Baileys) LOADED at ' + new Date().toLocaleTimeString() + ' ---');
+
 const { emitStatus, emitLog } = require('./socket');
+
+// Baileys is ESM-only; use dynamic import() from CommonJS
+let _baileys = null;
+async function getBaileys() {
+    if (!_baileys) {
+        _baileys = await import('@whiskeysockets/baileys');
+    }
+    return _baileys;
+}
+
+const silentLogger = pino({ level: 'silent' });
 
 class WhatsAppClient {
     constructor() {
-        const baseDir = process.env.DATA_DIR || 'C:\\';
-        const uniquePath = path.join(baseDir, 'wa_session_' + Date.now());
-        const authPath = path.join(baseDir, 'wa_auth_persistent');
-
-        const puppeteerOptions = {
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-extensions',
-                '--remote-allow-origins=*',
-                '--no-zygote',
-                '--no-first-run',
-                '--disable-canvas-aa',
-                '--disable-2d-canvas-clip-aa',
-                '--disable-gl-drawing-for-tests',
-                '--disable-breakpad',
-                '--disable-canvas-sketch-api',
-                '--disable-domain-reliability',
-                '--single-process',
-                '--js-flags=--max-old-space-size=512'
-            ]
-        };
-
-        // Use system Chromium if available (Docker/Railway)
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            console.log('Using chromium at:', process.env.PUPPETEER_EXECUTABLE_PATH);
-        }
-
-        this.client = new Client({
-            authStrategy: new LocalAuth({
-                dataPath: authPath
-            }),
-            puppeteer: puppeteerOptions,
-            webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-            }
-        });
-
+        this.sock = null;
         this.status = 'DISCONNECTED';
         this.qrText = '';
         this.lastError = null;
         this.initialized = false;
+        this._saveCreds = null;
+
+        // Expose a dummy .client property so any code that checks waClient.client
+        // gets a truthy value when connected instead of crashing.
+        this.client = null;
     }
 
     async init() {
@@ -63,82 +49,112 @@ class WhatsAppClient {
         }
         this.initialized = true;
 
-        const baseDir = process.env.DATA_DIR || 'C:\\';
-        const tempPath = path.join(baseDir, 'wa_temp_' + Date.now());
-        if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
-        process.env.TEMP = tempPath;
-        process.env.TMP = tempPath;
-
-        // Clean stale Chromium lock files from previous crashed instances
-        const authPath = path.join(baseDir, 'wa_auth_persistent');
-        this._cleanLockFiles(authPath);
-
-        console.log('WhatsApp Client initializing with TEMP:', process.env.TEMP);
-
-        this.client.on('qr', (qr) => {
-            this.status = 'AUTH_REQUIRED';
-            this.qrText = qr;
-            console.log('QR RECEIVED', qr);
-            emitLog({ type: 'info', message: 'QR Code received, waiting for scan...', timestamp: new Date().toISOString() });
-            qrcode.generate(qr, { small: true });
-            emitStatus(this.getStatus());
-        });
-
-        this.client.on('ready', async () => {
-            this.status = 'CONNECTED';
-            this.qrText = '';
-            console.log('Client is ready!');
-            emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
-            emitStatus(this.getStatus());
-        });
-
-        this.client.on('authenticated', () => {
-            console.log('AUTHENTICATED');
-            emitLog({ type: 'info', message: 'WhatsApp session authenticated.', timestamp: new Date().toISOString() });
-        });
-
-        this.client.on('auth_failure', (msg) => {
-            this.status = 'DISCONNECTED';
-            this.lastError = 'Auth failure: ' + msg;
-            console.error('AUTHENTICATION FAILURE', msg);
-            emitLog({ type: 'error', message: 'Authentication failure: ' + msg, timestamp: new Date().toISOString() });
-            emitStatus(this.getStatus());
-        });
-
-        this.client.on('disconnected', (reason) => {
-            this.status = 'DISCONNECTED';
-            console.log('Client was logged out', reason);
-            emitLog({ type: 'error', message: 'WhatsApp Client disconnected/logged out.', timestamp: new Date().toISOString() });
-            emitStatus(this.getStatus());
-            this.client.initialize(); // Try to reconnect
-        });
-
-        // Trigger GC once ready to clean up initialization overhead
-        if (global.gc) {
-            setTimeout(() => {
-                console.log('Running GC after WhatsApp initialization...');
-                global.gc();
-            }, 5000);
-        }
-
-        return this.client.initialize();
-    }
-
-    _cleanLockFiles(dir) {
         try {
-            if (!fs.existsSync(dir)) return;
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                const fullPath = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    this._cleanLockFiles(fullPath);
-                } else if (entry.name === 'SingletonLock' || entry.name === 'SingletonCookie' || entry.name === 'SingletonSocket') {
-                    fs.unlinkSync(fullPath);
-                    console.log('Removed stale lock file:', fullPath);
-                }
+            const {
+                default: makeWASocket,
+                useMultiFileAuthState,
+                fetchLatestBaileysVersion,
+                DisconnectReason,
+                makeCacheableSignalKeyStore
+            } = await getBaileys();
+
+            const baseDir = process.env.DATA_DIR || 'C:\\';
+            const authDir = path.join(baseDir, 'wa_auth_baileys');
+
+            // Ensure auth directory exists
+            if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+            const { state, saveCreds } = await useMultiFileAuthState(authDir);
+            this._saveCreds = saveCreds;
+
+            // Fetch latest supported WA version (falls back gracefully if network fails)
+            let version;
+            try {
+                const result = await fetchLatestBaileysVersion();
+                version = result.version;
+                console.log(`Baileys WA version: ${version.join('.')}`);
+            } catch (e) {
+                console.warn('Could not fetch latest WA version, using bundled default:', e.message);
+                version = [2, 3000, 1015901307]; // safe fallback
             }
-        } catch (err) {
-            console.error('Error cleaning lock files:', err.message);
+
+            this.sock = makeWASocket({
+                version,
+                auth: {
+                    creds: state.creds,
+                    keys: makeCacheableSignalKeyStore(state.keys, silentLogger)
+                },
+                logger: silentLogger,
+                printQRInTerminal: false,
+                browser: ['MUAAFCT Poster', 'Chrome', '120.0.0'],
+                syncFullHistory: false,
+                generateHighQualityLinkPreview: false
+            });
+
+            // Keep .client in sync so legacy code that checks `waClient.client` works
+            this.client = this.sock;
+
+            // Save credentials whenever they update
+            this.sock.ev.on('creds.update', saveCreds);
+
+            // Handle connection state changes
+            this.sock.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
+
+                if (qr) {
+                    this.status = 'AUTH_REQUIRED';
+                    this.qrText = qr;
+                    console.log('QR RECEIVED — waiting for scan');
+                    emitLog({ type: 'info', message: 'QR Code received, waiting for scan...', timestamp: new Date().toISOString() });
+                    qrcode.generate(qr, { small: true });
+                    emitStatus(this.getStatus());
+                }
+
+                if (connection === 'open') {
+                    this.status = 'CONNECTED';
+                    this.qrText = '';
+                    this.lastError = null;
+                    this.client = this.sock;
+                    console.log('WhatsApp Client connected!');
+                    emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
+                    emitStatus(this.getStatus());
+                }
+
+                if (connection === 'close') {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+                    this.status = 'DISCONNECTED';
+                    this.client = null;
+                    const reason = lastDisconnect?.error?.message || `Code ${statusCode}`;
+                    console.log(`WhatsApp connection closed. Reason: ${reason}. Reconnect: ${shouldReconnect}`);
+                    emitLog({
+                        type: 'error',
+                        message: `WhatsApp disconnected: ${reason}. ${shouldReconnect ? 'Reconnecting in 10s...' : 'Logged out — rescan QR to reconnect.'}`,
+                        timestamp: new Date().toISOString()
+                    });
+                    emitStatus(this.getStatus());
+
+                    if (shouldReconnect) {
+                        setTimeout(() => {
+                            console.log('Auto-reconnecting WhatsApp...');
+                            this.initialized = false;
+                            this.init().catch(e => console.error('Auto-reconnect failed:', e.message));
+                        }, 10000);
+                    } else {
+                        // Logged out — need fresh QR
+                        this.initialized = false;
+                    }
+                }
+            });
+
+            console.log('WhatsApp Client initializing via Baileys WebSocket...');
+        } catch (error) {
+            this.initialized = false;
+            this.lastError = error.message;
+            console.error('Error initializing WhatsApp Baileys client:', error);
+            emitLog({ type: 'error', message: 'WhatsApp init failed: ' + error.message, timestamp: new Date().toISOString() });
+            emitStatus(this.getStatus());
         }
     }
 
@@ -153,118 +169,67 @@ class WhatsAppClient {
     async reconnect() {
         try {
             console.log('Reconnection requested...');
+            emitLog({ type: 'info', message: 'WhatsApp reconnecting...', timestamp: new Date().toISOString() });
+
             this.status = 'DISCONNECTED';
             this.initialized = false;
-            if (this.client) {
+            this.client = null;
+
+            if (this.sock) {
                 try {
-                    await this.client.destroy();
+                    this.sock.ev.removeAllListeners();
+                    await this.sock.logout().catch(() => {});
+                    this.sock.end();
                 } catch (e) {
-                    console.error('Error destroying client:', e.message);
+                    console.error('Error during sock cleanup:', e.message);
                 }
-            }
-            const baseDir = process.env.DATA_DIR || 'C:\\';
-            const authPath = path.join(baseDir, 'wa_auth_persistent');
-
-            const reconnectPuppeteerOptions = {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-extensions',
-                    '--remote-allow-origins=*',
-                    '--no-zygote',
-                    '--no-first-run',
-                    '--disable-canvas-aa',
-                    '--disable-2d-canvas-clip-aa',
-                    '--disable-gl-drawing-for-tests',
-                    '--disable-breakpad',
-                    '--disable-canvas-sketch-api',
-                    '--disable-domain-reliability',
-                    '--single-process',
-                    '--js-flags=--max-old-space-size=512'
-                ]
-            };
-            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-                reconnectPuppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+                this.sock = null;
             }
 
-            const wwebCachePath = path.join(baseDir, 'wwebjs_cache');
-
-            this.client = new Client({
-                authStrategy: new LocalAuth({
-                    dataPath: authPath
-                }),
-                puppeteer: reconnectPuppeteerOptions,
-                webVersionCache: {
-                    type: 'remote',
-                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-                }
-            });
-            return this.init();
+            await this.init();
         } catch (error) {
             console.error('Error during reconnection:', error);
             throw error;
         }
     }
 
-    // ── Detached frame detection ──
-    _isDetachedFrameError(error) {
-        const msg = (error.message || '').toLowerCase();
-        return msg.includes('detached frame') ||
-               msg.includes('execution context was destroyed') ||
-               msg.includes('target closed') ||
-               msg.includes('session closed') ||
-               msg.includes('protocol error');
-    }
-
     async sendTextMessage(to, text) {
-        const MAX_RETRIES = 2;
-        let lastError;
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                if (this.status !== 'CONNECTED') {
-                    throw new Error('WhatsApp is not connected.');
-                }
-                await this.client.sendMessage(to, text);
-                console.log(`Text message sent to ${to} successfully.`);
-                return true;
-            } catch (error) {
-                lastError = error;
-                console.error(`Error sending WhatsApp text message (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
-                if (this._isDetachedFrameError(error) && attempt < MAX_RETRIES) {
-                    console.log('Detached frame detected, waiting before retry...');
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    continue;
-                }
-                break;
+        try {
+            if (this.status !== 'CONNECTED' || !this.sock) {
+                throw new Error('WhatsApp is not connected.');
             }
+            await this.sock.sendMessage(to, { text });
+            console.log(`Text message sent to ${to} successfully.`);
+            return true;
+        } catch (error) {
+            console.error('Error sending WhatsApp text message:', error.message);
+            throw error;
         }
-        throw lastError;
     }
 
     async sendImageWithCaption(groupId, imagePath, caption) {
         const MAX_RETRIES = 2;
         let lastError;
+
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                if (this.status !== 'CONNECTED') {
+                if (this.status !== 'CONNECTED' || !this.sock) {
                     throw new Error('WhatsApp is not connected.');
                 }
-                const media = MessageMedia.fromFilePath(imagePath);
-                await this.client.sendMessage(groupId, media, { caption: caption });
-                console.log(`Message sent to ${groupId} successfully.`);
+                const imageBuffer = fs.readFileSync(imagePath);
+                await this.sock.sendMessage(groupId, {
+                    image: imageBuffer,
+                    caption: caption
+                });
+                console.log(`Image+caption sent to ${groupId} successfully.`);
                 return true;
             } catch (error) {
                 lastError = error;
-                console.error(`Error sending WhatsApp message (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
-                if (this._isDetachedFrameError(error) && attempt < MAX_RETRIES) {
-                    console.log('Detached frame detected, waiting before retry...');
+                console.error(`Error sending WhatsApp image (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
+                if (attempt < MAX_RETRIES) {
                     await new Promise(resolve => setTimeout(resolve, 3000));
                     continue;
                 }
-                break;
             }
         }
         throw lastError;
@@ -274,18 +239,26 @@ class WhatsAppClient {
         try {
             console.log('Disconnect/logout requested...');
             emitLog({ type: 'info', message: 'Disconnecting WhatsApp session...', timestamp: new Date().toISOString() });
-            if (this.client) {
-                await this.client.logout();
+
+            if (this.sock) {
+                await this.sock.logout().catch(e => console.error('Logout error:', e.message));
+                this.sock.end();
+                this.sock = null;
             }
+
             this.status = 'DISCONNECTED';
             this.qrText = '';
             this.initialized = false;
+            this.client = null;
+
             emitLog({ type: 'success', message: 'WhatsApp session disconnected successfully.', timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
         } catch (error) {
             console.error('Error during disconnect:', error);
             this.status = 'DISCONNECTED';
             this.initialized = false;
+            this.client = null;
+            this.sock = null;
             emitStatus(this.getStatus());
             throw error;
         }
@@ -293,13 +266,11 @@ class WhatsAppClient {
 
     async getGroups() {
         try {
-            if (this.status !== 'CONNECTED') {
+            if (this.status !== 'CONNECTED' || !this.sock) {
                 throw new Error('WhatsApp is not connected.');
             }
-            const chats = await this.client.getChats();
-            return chats
-                .filter(c => c.isGroup)
-                .map(c => ({ id: c.id._serialized, name: c.name }));
+            const groups = await this.sock.groupFetchAllParticipating();
+            return Object.entries(groups).map(([id, g]) => ({ id, name: g.subject }));
         } catch (error) {
             console.error('Error getting groups:', error);
             throw error;
