@@ -262,12 +262,24 @@ const eventController = {
         try {
             const { id } = req.params;
             const db = await initDb();
-            const event = await db.get("SELECT status FROM events WHERE id = ?", [id]);
+            const event = await db.get("SELECT status, full_name, title, event_type FROM events WHERE id = ?", [id]);
+            if (!event) return res.status(404).json({ error: 'Event not found' });
+
             const newStatus = event.status === 'active' ? 'inactive' : 'active';
+            const eventName = event.full_name || event.title || event.event_type;
 
             await db.run("UPDATE events SET status = ? WHERE id = ?", [newStatus, id]);
+
+            const userId = req.user ? req.user.id : null;
+            await logActivity(userId, 'toggle_status', parseInt(id), `Toggled event "${eventName}" to ${newStatus}`, {
+                event_id: id,
+                event_name: eventName,
+                new_status: newStatus
+            });
+
             res.json({ id, status: newStatus });
         } catch (error) {
+            console.error('Error in toggleStatus:', error);
             res.status(500).json({ error: 'Internal server error.' });
         }
     },
@@ -284,6 +296,13 @@ const eventController = {
 
             const { sendPost } = require('../services/scheduler');
             setImmediate(() => sendPost(event));
+
+            const eventName = event.full_name || event.title || event.event_type;
+            const userId = req.user ? req.user.id : null;
+            await logActivity(userId, 'manual_post_triggered', parseInt(id), `Admin triggered manual post for "${eventName}"`, {
+                event_id: id,
+                event_name: eventName
+            });
 
             res.json({ message: 'Post request initiated. Check recent logs for status.' });
         } catch (error) {
