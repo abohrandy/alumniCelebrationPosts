@@ -19,6 +19,12 @@ interface EventItem {
     status: string;
     creator_name: string | null;
     created_at: string;
+    whatsapp_profile_id: number | null;
+}
+
+interface WhatsAppProfile {
+    id: number;
+    name: string;
 }
 
 const isVideoFile = (path: string | null | undefined) => {
@@ -57,6 +63,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [filterType, setFilterType] = useState(initialFilter);
     const [sortBy, setBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [profiles, setProfiles] = useState<WhatsAppProfile[]>([]);
 
 
     // Form state
@@ -72,11 +79,27 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [expiryDate, setExpiryDate] = useState('');
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+    const [selectedProfileId, setSelectedProfileId] = useState<string>('');
     const [viewingEvent, setViewingEvent] = useState<EventItem | null>(null);
 
     useEffect(() => {
         fetchEvents();
+        fetchProfiles();
     }, []);
+
+    const fetchProfiles = async () => {
+        try {
+            const res = await axios.get('/api/whatsapp/profiles');
+            setProfiles(res.data);
+            // Default to first profile if available and creating new
+            if (res.data.length > 0 && !editingId) {
+                const defaultProfile = res.data.find((p: any) => p.is_default) || res.data[0];
+                setSelectedProfileId(String(defaultProfile.id));
+            }
+        } catch (error) {
+            console.error('Failed to fetch WhatsApp profiles:', error);
+        }
+    };
 
     const fetchEvents = async () => {
         try {
@@ -103,6 +126,12 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setImageFiles([]);
         setPreviewUrls([]);
         setEditingId(null);
+        if (profiles.length > 0) {
+            const defaultProfile = profiles.find(p => (p as any).is_default) || profiles[0];
+            setSelectedProfileId(String(defaultProfile.id));
+        } else {
+            setSelectedProfileId('');
+        }
     };
 
     const openCreateForm = () => {
@@ -123,6 +152,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPostTime(event.post_time || '06:00');
         setExpiryDate(event.expiry_date || '');
         setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
+        setSelectedProfileId(event.whatsapp_profile_id ? String(event.whatsapp_profile_id) : '');
         setShowForm(true);
     };
 
@@ -142,6 +172,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         try {
             const formData = new FormData();
             formData.append('event_type', eventType);
+            formData.append('whatsapp_profile_id', selectedProfileId);
 
             if (eventType === 'birthday' || eventType === 'wedding_anniversary' || eventType === 'one_day_event') {
                 formData.append('full_name', fullName);
@@ -444,6 +475,28 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 )}
                             </div>
 
+                            {/* WhatsApp Profile Selection */}
+                            <div>
+                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Send using WhatsApp Account</label>
+                                <select
+                                    value={selectedProfileId}
+                                    onChange={(e) => setSelectedProfileId(e.target.value)}
+                                    className="w-full rounded-lg px-3 py-2"
+                                    style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                    required
+                                >
+                                    <option value="" disabled>Select an account</option>
+                                    {profiles.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                                {profiles.length === 0 && (
+                                    <p className="mt-1 text-[10px] text-amber-500 font-medium">
+                                        ⚠️ No WhatsApp accounts found. Please add one in the WhatsApp Status tab.
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Submit */}
                             <button type="submit" disabled={submitting}
                                 className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50"
@@ -523,6 +576,15 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                                 </div>
                                             </div>
                                         )}
+                                        <div className="flex items-center gap-3 text-slate-300">
+                                            <div className="p-2 bg-white/5 rounded-lg text-emerald-500"><Plus size={16} /></div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-500 uppercase">WhatsApp Account</p>
+                                                <p className="text-sm font-medium">
+                                                    {profiles.find(p => p.id === viewingEvent.whatsapp_profile_id)?.name || `Profile #${viewingEvent.whatsapp_profile_id}`}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

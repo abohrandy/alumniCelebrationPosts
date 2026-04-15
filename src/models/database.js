@@ -412,6 +412,45 @@ async function initDb() {
         }
     }
 
+    // ── WhatsApp Profiles table ──
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS whatsapp_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            auth_dir TEXT NOT NULL UNIQUE,
+            status TEXT DEFAULT 'DISCONNECTED',
+            last_error TEXT,
+            is_default INTEGER DEFAULT 0,
+            group_id TEXT DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // ── Migrate Existing Session to Profile 1 ──
+    const profileCount = await db.get('SELECT COUNT(*) as count FROM whatsapp_profiles');
+    if (profileCount.count === 0) {
+        console.log('Seeding primary WhatsApp profile...');
+        await db.run(
+            'INSERT INTO whatsapp_profiles (name, auth_dir, is_default, status) VALUES (?, ?, ?, ?)',
+            ['Primary Account', 'wa_auth_baileys', 1, 'DISCONNECTED']
+        );
+        
+        // If the old wa_auth_baileys exists in a legacy spot, the service will pick it up.
+        // We'll organize future profiles into wa_auth_baileys/profile_<id>
+    }
+
+    // ── Events Table Updates ──
+    const eventCols = await db.all("PRAGMA table_info(events)");
+    const eventColNames = eventCols.map(c => c.name);
+    if (!eventColNames.includes('whatsapp_profile_id')) {
+        await db.exec("ALTER TABLE events ADD COLUMN whatsapp_profile_id INTEGER REFERENCES whatsapp_profiles(id)");
+        // Update existing events to use the primary profile
+        const primaryProfile = await db.get('SELECT id FROM whatsapp_profiles WHERE is_default = 1');
+        if (primaryProfile) {
+            await db.run('UPDATE events SET whatsapp_profile_id = ?', [primaryProfile.id]);
+        }
+    }
+
     console.log('Database initialized successfully.');
     return db;
 }

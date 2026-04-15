@@ -333,13 +333,35 @@ async function sendPost(event, _isRetry = false) {
             ? path.resolve(process.env.DATA_DIR, event.design_image_path)
             : path.resolve(event.design_image_path);
 
+        const displayName = event.full_name || event.title || event.event_type;
+
+        // --- Multi-Account Routing ---
+        // 1. Determine which WhatsApp account to use
+        const profileId = event.whatsapp_profile_id;
+        const instance = waClient.getInstance(profileId);
+        
+        if (!instance || instance.status !== 'CONNECTED') {
+            const errorMsg = `Account ${instance ? instance.name : (profileId || 'Default')} is not connected. Skipping post.`;
+            console.error(errorMsg);
+            emitLog({ type: 'error', message: errorMsg, timestamp: new Date().toISOString() });
+            await logActivity(null, 'post_failed', event.id, errorMsg);
+            return;
+        }
+
+        // 2. Determine target group
+        // If the profile has a group_id set, use it. Otherwise use Settings.
+        const dbProfile = await db.get('SELECT group_id FROM whatsapp_profiles WHERE id = ?', [instance.id]);
+        const targetGroupId = (dbProfile && dbProfile.group_id) ? dbProfile.group_id : groupId;
+
+        console.log(`Sending post for ${displayName} via account [${instance.name}] to group [${targetGroupId}]`);
+
         // Send to primary group
-        await waClient.sendImageWithCaption(groupId, imagePath, caption);
+        await instance.sendImageWithCaption(targetGroupId, imagePath, caption);
 
         // Send to secondary group if configured (skip for Monday Market)
         if (groupId2 && event.event_type !== 'monday_market') {
             try {
-                await waClient.sendImageWithCaption(groupId2, imagePath, caption);
+                await instance.sendImageWithCaption(groupId2, imagePath, caption);
                 console.log(`Also sent to secondary group: ${groupId2}`);
             } catch (err2) {
                 console.error(`Failed to send to secondary group ${groupId2}:`, err2.message);
@@ -366,19 +388,17 @@ async function sendPost(event, _isRetry = false) {
             } catch (igError) {
                 console.error('Instagram posting failed:', igError.message);
                 await logActivity(null, 'instagram_post_failed', event.id, `Instagram failed: ${igError.message}`, { platform: 'instagram', error: igError.message });
-                // Don't throw here, keep WhatsApp log success if WhatsApp worked
             }
         }
 
-        const displayName = event.full_name || event.title || event.event_type;
-
-        const logMsg = `Post sent for ${displayName} (${event.event_type})`;
+        const logMsg = `Post sent for ${displayName} (${event.event_type}) via ${instance.name}`;
         console.log(logMsg);
         emitLog({ type: 'success', message: logMsg, timestamp: new Date().toISOString() });
         await logActivity(null, 'post_sent', event.id, logMsg, {
             event_type: event.event_type,
             display_name: displayName,
-            whatsapp_primary: groupId,
+            whatsapp_account: instance.name,
+            whatsapp_primary: targetGroupId,
             whatsapp_secondary: groupId2 || null,
             caption: caption
         });
@@ -397,12 +417,6 @@ async function sendPost(event, _isRetry = false) {
             (event.event_type === 'one_day_event' && (!event.repeat_annually || event.repeat_annually === 0))) {
             
             await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [event.id]);
-            // If it's a repeating one day event, it's deactivated till next year. If it's non-repeating, it's deactivated permanently.
-            if (event.event_type === 'one_day_event' && (!event.repeat_annually || event.repeat_annually === 0)) {
-                 console.log(`Deactivated non-repeating one-day event (ID: ${event.id}) as it has been posted.`);
-            } else {
-                 console.log(`Deactivated annual event ${event.event_type} (ID: ${event.id}) until next year.`);
-            }
         }
         
         // 2. Delete single-post non-repeating announcements immediately after post
@@ -416,8 +430,6 @@ async function sendPost(event, _isRetry = false) {
                 } catch(e) {}
             }
             await db.run("DELETE FROM events WHERE id = ?", [event.id]);
-            console.log(`Deleted non-repeating announcement (ID: ${event.id}).`);
-            await logActivity(null, 'event_deleted', event.id, `Single-post announcement "${event.title || event.id}" auto-deleted after posting.`);
         }
 
     } catch (error) {
@@ -426,36 +438,6 @@ async function sendPost(event, _isRetry = false) {
         console.error(errMsg);
         emitLog({ type: 'error', message: errMsg, timestamp: new Date().toISOString() });
         await logActivity(null, 'post_failed', event.id, errMsg, { error: error.message });
-
-        // ── Last-resort full reconnect + retry ──
-        // If this was a detached frame / session error AND we haven't already retried,
-        // do a full WhatsApp client reconnect and retry the entire post once.
-        const isFrameError = (error.message || '').toLowerCase().includes('detached frame') ||
-                             (error.message || '').toLowerCase().includes('execution context was destroyed') ||
-                             (error.message || '').toLowerCase().includes('target closed') ||
-                             (error.message || '').toLowerCase().includes('protocol error');
-
-        if (isFrameError && !_isRetry) {
-            console.log('=== LAST-RESORT RECOVERY: Full WhatsApp client reconnect ===');
-            emitLog({ type: 'info', message: `Attempting full reconnect to recover from frame error for ${displayName}...`, timestamp: new Date().toISOString() });
-            try {
-                await waClient.reconnect();
-                // Wait for the client to fully re-establish
-                await new Promise(resolve => setTimeout(resolve, 15000));
-
-                if (waClient.status === 'CONNECTED') {
-                    console.log('Full reconnect succeeded. Retrying post...');
-                    emitLog({ type: 'info', message: `Reconnected! Retrying post for ${displayName}...`, timestamp: new Date().toISOString() });
-                    await sendPost(event, true);
-                } else {
-                    console.error('Full reconnect completed but client is not CONNECTED. Giving up.');
-                    emitLog({ type: 'error', message: `Reconnect failed (status: ${waClient.status}). Post for ${displayName} will not be retried.`, timestamp: new Date().toISOString() });
-                }
-            } catch (reconnectErr) {
-                console.error('Full reconnect failed:', reconnectErr.message);
-                emitLog({ type: 'error', message: `Full reconnect failed: ${reconnectErr.message}. Post for ${displayName} abandoned.`, timestamp: new Date().toISOString() });
-            }
-        }
     }
 }
 

@@ -88,7 +88,7 @@ async function start() {
     try {
         await initDb();
         const waClient = require('./src/services/whatsapp');
-        await waClient.init();
+        await waClient.initAll();
         await scheduleDailyPosts();
 
         server.listen(PORT, () => {

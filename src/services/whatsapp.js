@@ -1,23 +1,11 @@
-/**
- * WhatsApp Service — powered by @whiskeysockets/baileys
- *
- * Pure WebSocket implementation. No Chromium, no Puppeteer, no browser.
- * This eliminates all memory pressure, detached frame errors, and startup hangs.
- *
- * Exported interface is identical to the old whatsapp-web.js version so that
- * api.js and scheduler.js require zero changes.
- */
-
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
 
-console.log('--- WHATSAPP SERVICE (Baileys) LOADED at ' + new Date().toLocaleTimeString() + ' ---');
-
 const { emitStatus, emitLog } = require('./socket');
 
-// Baileys is ESM-only; use dynamic import() from CommonJS
+// Baileys dynamic import
 let _baileys = null;
 async function getBaileys() {
     if (!_baileys) {
@@ -29,24 +17,24 @@ async function getBaileys() {
 const silentLogger = pino({ level: 'silent' });
 
 class WhatsAppClient {
-    constructor() {
+    constructor(profile) {
+        this.id = profile.id;
+        this.name = profile.name;
+        this.authDirName = profile.auth_dir || `profile_${profile.id}`;
+        this.isDefault = !!profile.is_default;
+        
         this.sock = null;
         this.status = 'DISCONNECTED';
         this.qrText = '';
         this.lastError = null;
         this.initialized = false;
-        this._saveCreds = null;
-
-        // Expose a dummy .client property so any code that checks waClient.client
-        // gets a truthy value when connected instead of crashing.
+        
+        // Expose .client for legacy compatibility
         this.client = null;
     }
 
     async init() {
-        if (this.initialized) {
-            console.log('WhatsApp Client already initialized, skipping...');
-            return;
-        }
+        if (this.initialized) return;
         this.initialized = true;
 
         try {
@@ -59,23 +47,18 @@ class WhatsAppClient {
             } = await getBaileys();
 
             const baseDir = process.env.DATA_DIR || 'C:\\';
-            const authDir = path.join(baseDir, 'wa_auth_baileys');
+            const authPath = path.join(baseDir, this.authDirName);
 
-            // Ensure auth directory exists
-            if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+            if (!fs.existsSync(authPath)) fs.mkdirSync(authPath, { recursive: true });
 
-            const { state, saveCreds } = await useMultiFileAuthState(authDir);
-            this._saveCreds = saveCreds;
+            const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
-            // Fetch latest supported WA version (falls back gracefully if network fails)
             let version;
             try {
                 const result = await fetchLatestBaileysVersion();
                 version = result.version;
-                console.log(`Baileys WA version: ${version.join('.')}`);
             } catch (e) {
-                console.warn('Could not fetch latest WA version, using bundled default:', e.message);
-                version = [2, 3000, 1015901307]; // safe fallback
+                version = [2, 3000, 1015901307];
             }
 
             this.sock = makeWASocket({
@@ -86,27 +69,21 @@ class WhatsAppClient {
                 },
                 logger: silentLogger,
                 printQRInTerminal: false,
-                browser: ['MUAAFCT Poster', 'Chrome', '120.0.0'],
+                browser: [`MUAAFCT-${this.name}`, 'Chrome', '120.0.0'],
                 syncFullHistory: false,
                 generateHighQualityLinkPreview: false
             });
 
-            // Keep .client in sync so legacy code that checks `waClient.client` works
             this.client = this.sock;
-
-            // Save credentials whenever they update
             this.sock.ev.on('creds.update', saveCreds);
 
-            // Handle connection state changes
             this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
 
                 if (qr) {
                     this.status = 'AUTH_REQUIRED';
                     this.qrText = qr;
-                    console.log('QR RECEIVED — waiting for scan');
-                    emitLog({ type: 'info', message: 'QR Code received, waiting for scan...', timestamp: new Date().toISOString() });
-                    qrcode.generate(qr, { small: true });
+                    console.log(`[WA-${this.id}] QR RECEIVED`);
                     emitStatus(this.getStatus());
                 }
 
@@ -114,9 +91,8 @@ class WhatsAppClient {
                     this.status = 'CONNECTED';
                     this.qrText = '';
                     this.lastError = null;
-                    this.client = this.sock;
-                    console.log('WhatsApp Client connected!');
-                    emitLog({ type: 'success', message: 'WhatsApp Client is ready and connected!', timestamp: new Date().toISOString() });
+                    console.log(`[WA-${this.id}] Connected: ${this.name}`);
+                    emitLog({ type: 'success', message: `${this.name} is connected.`, timestamp: new Date().toISOString() });
                     emitStatus(this.getStatus());
                 }
 
@@ -126,158 +102,160 @@ class WhatsAppClient {
 
                     this.status = 'DISCONNECTED';
                     this.client = null;
-                    const reason = lastDisconnect?.error?.message || `Code ${statusCode}`;
-                    console.log(`WhatsApp connection closed. Reason: ${reason}. Reconnect: ${shouldReconnect}`);
-                    emitLog({
-                        type: 'error',
-                        message: `WhatsApp disconnected: ${reason}. ${shouldReconnect ? 'Reconnecting in 10s...' : 'Logged out — rescan QR to reconnect.'}`,
-                        timestamp: new Date().toISOString()
-                    });
-                    emitStatus(this.getStatus());
-
+                    
                     if (shouldReconnect) {
                         setTimeout(() => {
-                            console.log('Auto-reconnecting WhatsApp...');
                             this.initialized = false;
-                            this.init().catch(e => console.error('Auto-reconnect failed:', e.message));
+                            this.init().catch(() => {});
                         }, 10000);
                     } else {
-                        // Logged out — need fresh QR
                         this.initialized = false;
                     }
+                    emitStatus(this.getStatus());
                 }
             });
 
-            console.log('WhatsApp Client initializing via Baileys WebSocket...');
         } catch (error) {
             this.initialized = false;
             this.lastError = error.message;
-            console.error('Error initializing WhatsApp Baileys client:', error);
-            emitLog({ type: 'error', message: 'WhatsApp init failed: ' + error.message, timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
         }
     }
 
     getStatus() {
         return {
+            id: this.id,
+            name: this.name,
             status: this.status,
             qrText: this.qrText,
             lastError: this.lastError
         };
     }
 
-    async reconnect() {
-        try {
-            console.log('Reconnection requested...');
-            emitLog({ type: 'info', message: 'WhatsApp reconnecting...', timestamp: new Date().toISOString() });
-
-            this.status = 'DISCONNECTED';
-            this.initialized = false;
-            this.client = null;
-
-            if (this.sock) {
-                try {
-                    this.sock.ev.removeAllListeners();
-                    await this.sock.logout().catch(() => {});
-                    this.sock.end();
-                } catch (e) {
-                    console.error('Error during sock cleanup:', e.message);
-                }
-                this.sock = null;
-            }
-
-            await this.init();
-        } catch (error) {
-            console.error('Error during reconnection:', error);
-            throw error;
-        }
-    }
-
     async sendTextMessage(to, text) {
-        try {
-            if (this.status !== 'CONNECTED' || !this.sock) {
-                throw new Error('WhatsApp is not connected.');
-            }
-            await this.sock.sendMessage(to, { text });
-            console.log(`Text message sent to ${to} successfully.`);
-            return true;
-        } catch (error) {
-            console.error('Error sending WhatsApp text message:', error.message);
-            throw error;
-        }
+        if (this.status !== 'CONNECTED' || !this.sock) throw new Error(`Account ${this.name} is not connected.`);
+        await this.sock.sendMessage(to, { text });
+        return true;
     }
 
     async sendImageWithCaption(groupId, imagePath, caption) {
-        const MAX_RETRIES = 2;
-        let lastError;
-
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                if (this.status !== 'CONNECTED' || !this.sock) {
-                    throw new Error('WhatsApp is not connected.');
-                }
-                const imageBuffer = fs.readFileSync(imagePath);
-                await this.sock.sendMessage(groupId, {
-                    image: imageBuffer,
-                    caption: caption
-                });
-                console.log(`Image+caption sent to ${groupId} successfully.`);
-                return true;
-            } catch (error) {
-                lastError = error;
-                console.error(`Error sending WhatsApp image (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
-                if (attempt < MAX_RETRIES) {
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    continue;
-                }
-            }
-        }
-        throw lastError;
-    }
-
-    async disconnect() {
-        try {
-            console.log('Disconnect/logout requested...');
-            emitLog({ type: 'info', message: 'Disconnecting WhatsApp session...', timestamp: new Date().toISOString() });
-
-            if (this.sock) {
-                await this.sock.logout().catch(e => console.error('Logout error:', e.message));
-                this.sock.end();
-                this.sock = null;
-            }
-
-            this.status = 'DISCONNECTED';
-            this.qrText = '';
-            this.initialized = false;
-            this.client = null;
-
-            emitLog({ type: 'success', message: 'WhatsApp session disconnected successfully.', timestamp: new Date().toISOString() });
-            emitStatus(this.getStatus());
-        } catch (error) {
-            console.error('Error during disconnect:', error);
-            this.status = 'DISCONNECTED';
-            this.initialized = false;
-            this.client = null;
-            this.sock = null;
-            emitStatus(this.getStatus());
-            throw error;
-        }
+        if (this.status !== 'CONNECTED' || !this.sock) throw new Error(`Account ${this.name} is not connected.`);
+        const imageBuffer = fs.readFileSync(imagePath);
+        await this.sock.sendMessage(groupId, { image: imageBuffer, caption });
+        return true;
     }
 
     async getGroups() {
-        try {
-            if (this.status !== 'CONNECTED' || !this.sock) {
-                throw new Error('WhatsApp is not connected.');
-            }
-            const groups = await this.sock.groupFetchAllParticipating();
-            return Object.entries(groups).map(([id, g]) => ({ id, name: g.subject }));
-        } catch (error) {
-            console.error('Error getting groups:', error);
-            throw error;
+        if (this.status !== 'CONNECTED' || !this.sock) return [];
+        const groups = await this.sock.groupFetchAllParticipating();
+        return Object.entries(groups).map(([id, g]) => ({ id, name: g.subject }));
+    }
+
+    async disconnect() {
+        if (this.sock) {
+            await this.sock.logout().catch(() => {});
+            this.sock.end();
+            this.sock = null;
         }
+        this.status = 'DISCONNECTED';
+        this.initialized = false;
+        emitStatus(this.getStatus());
+    }
+
+    setDefault(isDefault) {
+        this.isDefault = isDefault;
     }
 }
 
-// Singleton instance
-const waClient = new WhatsAppClient();
-module.exports = waClient;
+class WAAccountManager {
+    constructor() {
+        this.instances = new Map();
+        this.isInitialized = false;
+    }
+
+    async initAll() {
+        if (this.isInitialized) return;
+        this.isInitialized = true;
+
+        const { getDb } = require('../models/database');
+        const db = await getDb();
+        const profiles = await db.all('SELECT * FROM whatsapp_profiles');
+
+        console.log(`Starting ${profiles.length} WhatsApp profiles...`);
+        for (const profile of profiles) {
+            const client = new WhatsAppClient(profile);
+            this.instances.set(profile.id, client);
+            client.init().catch(err => console.error(`Failed to init profile ${profile.id}:`, err));
+        }
+    }
+
+    getInstance(id) {
+        // If ID is string or missing, handle gracefully
+        const numericId = parseInt(id);
+        if (isNaN(numericId)) {
+            // Priority 1: The instance marked as default
+            const instances = Array.from(this.instances.values());
+            const defaultInstance = instances.find(i => i.isDefault);
+            if (defaultInstance) return defaultInstance;
+            
+            // Priority 2: Fallback to first available
+            return instances[0];
+        }
+        return this.instances.get(numericId);
+    }
+
+    async addInstance(profile) {
+        const client = new WhatsAppClient(profile);
+        this.instances.set(profile.id, client);
+        await client.init();
+        return client;
+    }
+
+    async removeInstance(id) {
+        const client = this.instances.get(parseInt(id));
+        if (client) {
+            await client.disconnect();
+            this.instances.delete(parseInt(id));
+        }
+    }
+
+    getAllStatus() {
+        return Array.from(this.instances.values()).map(i => i.getStatus());
+    }
+
+    setDefault(id) {
+        const numericId = parseInt(id);
+        this.instances.forEach((client, instanceId) => {
+            client.setDefault(instanceId === numericId);
+        });
+    }
+
+    // Proxy methods for legacy support (uses default instance)
+    async sendTextMessage(to, text, profileId = null) {
+        const client = this.getInstance(profileId);
+        if (!client) throw new Error('No WhatsApp account available.');
+        return client.sendTextMessage(to, text);
+    }
+
+    async sendImageWithCaption(groupId, imagePath, caption, profileId = null) {
+        const client = this.getInstance(profileId);
+        if (!client) throw new Error('No WhatsApp account available.');
+        return client.sendImageWithCaption(groupId, imagePath, caption);
+    }
+
+    async getGroups(profileId = null) {
+        const client = this.getInstance(profileId);
+        if (!client) return [];
+        return client.getGroups();
+    }
+    
+    // Legacy alias for top-level waClient
+    get status() {
+        const primary = this.getInstance();
+        return primary ? primary.status : 'DISCONNECTED';
+    }
+}
+
+const waManager = new WAAccountManager();
+module.exports = waManager;
+

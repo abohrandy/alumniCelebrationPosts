@@ -14,7 +14,8 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
+                whatsapp_profile_id
             } = req.body;
 
             // Backward compatibility
@@ -65,8 +66,8 @@ const eventController = {
 
             const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
@@ -82,7 +83,8 @@ const eventController = {
                     0,
                     expiry_date || null,
                     repeat_annually ? 1 : 0,
-                    userId
+                    userId,
+                    whatsapp_profile_id || null
                 ]
             );
 
@@ -100,7 +102,7 @@ const eventController = {
             const displayName = fullName || title || event_type;
 
             await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`, {
-                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually, whatsapp_profile_id
             });
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
@@ -116,7 +118,8 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
+                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
+                whatsapp_profile_id
             } = req.body;
 
             const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
@@ -127,7 +130,8 @@ const eventController = {
                 UPDATE events 
                 SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
-                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?, repeat_annually = ?
+                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?, repeat_annually = ?,
+                    whatsapp_profile_id = ?
             `;
             let queryParams = [
                 title || null,
@@ -141,7 +145,8 @@ const eventController = {
                 repeat_interval_days || null,
                 post_time || '06:00',
                 expiry_date || null,
-                repeat_annually ? 1 : 0
+                repeat_annually ? 1 : 0,
+                whatsapp_profile_id || null
             ];
 
             if (req.files && (req.files.design_image || req.files['design_image[]'])) {
@@ -203,7 +208,7 @@ const eventController = {
 
             const userId = req.user ? req.user.id : null;
             await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`, {
-                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually
+                event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually, whatsapp_profile_id
             });
             res.json({ message: 'Event updated successfully.' });
         } catch (error) {

@@ -1,29 +1,41 @@
 import { useState, useEffect } from 'react';
-import { QrCode, RefreshCcw, CheckCircle2, AlertCircle, History, Send, Power } from 'lucide-react';
+import { RefreshCcw, CheckCircle2, History, Send, Power, Plus, Trash2, User, Star } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
 const socket = io();
 
+interface Profile {
+    id: number;
+    name: string;
+    auth_dir: string;
+    status: string;
+    qrText: string;
+    lastError: string | null;
+    is_default: number;
+}
+
 const WhatsAppStatus = () => {
-    const [status, setStatus] = useState<any>({
-        status: 'DISCONNECTED',
-        qrText: '',
-        lastError: null
-    });
+    const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState<any[]>([
         { time: new Date().toLocaleTimeString(), msg: 'Dashboard connected to live stream', type: 'info' }
     ]);
 
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newProfileName, setNewProfileName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
+
     useEffect(() => {
-        // Initial fetch
-        fetchStatus();
+        fetchProfiles();
 
         // Socket listeners
-        socket.on('whatsapp_status', (data) => {
+        socket.on('whatsapp_status_update', (data) => {
             console.log('Live status update:', data);
-            setStatus(data);
+            setProfiles(prev => prev.map(p => 
+                p.id === data.id ? { ...p, status: data.status, qrText: data.qrText, lastError: data.lastError } : p
+            ));
         });
 
         socket.on('post_log', (log) => {
@@ -35,194 +47,265 @@ const WhatsAppStatus = () => {
         });
 
         return () => {
-            socket.off('whatsapp_status');
+            socket.off('whatsapp_status_update');
             socket.off('post_log');
         };
     }, []);
 
-    const fetchStatus = async () => {
+    const fetchProfiles = async () => {
         try {
-            const res = await axios.get('/api/whatsapp/status');
-            setStatus(res.data);
+            const res = await axios.get('/api/whatsapp/profiles');
+            setProfiles(res.data);
         } catch (error) {
-            console.error('Failed to fetch status');
+            console.error('Failed to fetch profiles');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const [sending, setSending] = useState(false);
-    const handleSendTest = async () => {
-        if (!isConnected) return;
-        setSending(true);
+    const handleAddProfile = async () => {
+        if (!newProfileName.trim()) return;
+        setIsCreating(true);
         try {
-            await axios.post('/api/whatsapp/send-test');
+            await axios.post('/api/whatsapp/profiles', { name: newProfileName });
+            setNewProfileName('');
+            setShowAddModal(false);
+            fetchProfiles();
             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
-                msg: 'Test message sent to all configured groups!',
+                msg: `New profile "${newProfileName}" created.`,
                 type: 'info'
             }, ...prev]);
         } catch (error: any) {
-            setLogs(prev => [{
-                time: new Date().toLocaleTimeString(),
-                msg: 'Failed to send test: ' + (error.response?.data?.error || error.message),
-                type: 'error'
-            }, ...prev]);
+            alert(error.response?.data?.error || 'Failed to create profile');
         } finally {
-            setSending(false);
+            setIsCreating(false);
         }
     };
 
-    const [reconnecting, setReconnecting] = useState(false);
-    const handleReconnect = async () => {
-        setReconnecting(true);
+    const handleDeleteProfile = async (id: number, name: string) => {
+        if (!confirm(`Are you sure you want to delete profile "${name}"? This will erase all session data.`)) return;
         try {
-            await axios.post('/api/whatsapp/reconnect');
+            await axios.delete(`/api/whatsapp/profiles/${id}`);
+            fetchProfiles();
             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
-                msg: 'Reconnection initiated...',
+                msg: `Profile "${name}" deleted.`,
                 type: 'info'
             }, ...prev]);
         } catch (error: any) {
-            setLogs(prev => [{
-                time: new Date().toLocaleTimeString(),
-                msg: 'Failed to reconnect: ' + (error.response?.data?.error || error.message),
-                type: 'error'
-            }, ...prev]);
-        } finally {
-            setReconnecting(false);
+            alert(error.response?.data?.error || 'Failed to delete profile');
         }
     };
 
-    const [disconnecting, setDisconnecting] = useState(false);
-    const handleDisconnect = async () => {
-        if (!confirm('Are you sure you want to disconnect WhatsApp? You will need to re-scan the QR code to reconnect.')) return;
-        setDisconnecting(true);
+    const handleAction = async (action: 'reconnect' | 'disconnect' | 'send-test', profileId: number) => {
         try {
-            await axios.post('/api/whatsapp/disconnect');
+            const endpoint = `/api/whatsapp/${action}`;
+            await axios.post(endpoint, { profileId });
             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
-                msg: 'WhatsApp session disconnected.',
+                msg: `${action.replace('-', ' ')} initiated for profile #${profileId}.`,
                 type: 'info'
             }, ...prev]);
         } catch (error: any) {
-            setLogs(prev => [{
+             setLogs(prev => [{
                 time: new Date().toLocaleTimeString(),
-                msg: 'Failed to disconnect: ' + (error.response?.data?.error || error.message),
+                msg: `Error: ${error.response?.data?.error || error.message}`,
                 type: 'error'
             }, ...prev]);
-        } finally {
-            setDisconnecting(false);
         }
     };
 
-    const isConnected = status.status === 'CONNECTED';
-    const needsAuth = status.status === 'AUTH_REQUIRED';
+    const handleSetDefault = async (id: number, name: string) => {
+        try {
+            await axios.patch(`/api/whatsapp/profiles/${id}/default`);
+            fetchProfiles();
+            setLogs(prev => [{
+                time: new Date().toLocaleTimeString(),
+                msg: `Profile "${name}" is now the primary account.`,
+                type: 'success'
+            }, ...prev]);
+        } catch (error: any) {
+            alert(error.response?.data?.error || 'Failed to set default profile');
+        }
+    };
+
+    if (loading) return <div className="p-8 text-center text-muted">Loading WhatsApp profiles...</div>;
 
     return (
         <div className="space-y-8">
-            {/* Status Header */}
-            <div className={`glass-card p-6 flex flex-col md:flex-row items-center justify-between gap-6 border-l-4 ${isConnected ? 'border-l-emerald-500' : 'border-l-red-500'}`}>
-                <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isConnected ? 'bg-emerald-500/20 text-emerald-500' : 'bg-red-500/20 text-red-500'}`}>
-                        {isConnected ? <CheckCircle2 size={32} /> : <AlertCircle size={32} />}
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>{status.status}</h3>
-                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>System is {isConnected ? 'ready to send posts' : 'awaiting connection'}</p>
-                    </div>
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>WhatsApp Accounts</h2>
+                    <p style={{ color: 'var(--text-secondary)' }}>Manage multiple profiles and connection states</p>
                 </div>
-                <div className="flex gap-3 flex-wrap">
-                    {isConnected && (
-                        <button
-                            onClick={handleDisconnect}
-                            disabled={disconnecting}
-                            className={`px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg flex items-center gap-2 border border-red-500/20 ${disconnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <Power size={16} className={disconnecting ? 'animate-pulse' : ''} />
-                            {disconnecting ? 'Disconnecting...' : 'Disconnect'}
-                        </button>
-                    )}
-                    <button
-                        onClick={handleReconnect}
-                        disabled={reconnecting}
-                        className={`px-4 py-2 glass-card text-sm font-bold flex items-center gap-2 ${reconnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{ color: 'var(--text-primary)' }}
-                    >
-                        <RefreshCcw size={16} className={reconnecting ? 'animate-spin' : ''} /> {reconnecting ? 'Reconnecting...' : 'Reconnect'}
-                    </button>
-                    <button
-                        onClick={handleSendTest}
-                        disabled={!isConnected || sending}
-                        className={`px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-lg flex items-center gap-2 ${(!isConnected || sending) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {sending ? <RefreshCcw size={16} className="animate-spin" /> : <Send size={16} />}
-                        {sending ? 'Sending...' : 'Send Test'}
-                    </button>
+                <button 
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-lg"
+                >
+                    <Plus size={20} /> Add New Profile
+                </button>
+            </div>
+
+            {/* Profiles Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {profiles.map(profile => (
+                    <div key={profile.id} className={`glass-card p-6 flex flex-col gap-6 relative overflow-hidden border-t-4 ${profile.status === 'CONNECTED' ? 'border-t-emerald-500' : 'border-t-amber-500'}`}>
+                        {/* Profile Info */}
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${profile.status === 'CONNECTED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                    <User size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+                                        {profile.name}
+                                    </h3>
+                                    {profile.is_default ? (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                                            <Star size={10} fill="currentColor" /> Primary
+                                        </span>
+                                    ) : (
+                                        <span className={`text-xs font-bold uppercase ${profile.status === 'CONNECTED' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                            {profile.status}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleAction('reconnect', profile.id)}
+                                    title="Reconnect"
+                                    className="p-2 hover:bg-primary/10 rounded-lg text-secondary transition-colors"
+                                >
+                                    <RefreshCcw size={18} />
+                                </button>
+                                <button 
+                                    onClick={() => handleSetDefault(profile.id, profile.name)}
+                                    disabled={!!profile.is_default}
+                                    title={profile.is_default ? "Primary Account" : "Set as Primary"}
+                                    className={`p-2 rounded-lg transition-colors ${profile.is_default ? 'text-primary bg-primary/10 cursor-default' : 'text-secondary hover:bg-primary/10'}`}
+                                >
+                                    <Star size={18} fill={profile.is_default ? "currentColor" : "none"} />
+                                </button>
+                                {!profile.is_default && (
+                                    <button 
+                                        onClick={() => handleDeleteProfile(profile.id, profile.name)}
+                                        title="Delete Profile"
+                                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 transition-colors"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Status Content */}
+                        <div className="flex-1 flex flex-col items-center justify-center py-4">
+                            {profile.status === 'CONNECTED' ? (
+                                <div className="text-center">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto mb-4">
+                                        <CheckCircle2 size={32} />
+                                    </div>
+                                    <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Account is online and active</p>
+                                    <button 
+                                        onClick={() => handleAction('send-test', profile.id)}
+                                        className="mt-4 px-4 py-2 border border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-500 rounded-lg text-xs font-bold flex items-center gap-2 mx-auto"
+                                    >
+                                        <Send size={14} /> Send Test Message
+                                    </button>
+                                </div>
+                            ) : profile.qrText ? (
+                                <div className="text-center">
+                                    <div className="bg-white p-3 rounded-xl shadow-lg mb-4 inline-block">
+                                        <QRCodeSVG value={profile.qrText} size={150} level="M" includeMargin />
+                                    </div>
+                                    <p className="text-xs font-medium max-w-[200px]" style={{ color: 'var(--text-muted)' }}>
+                                        Scan this QR code with your phone to link this account.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <RefreshCcw size={32} className="animate-spin text-primary/30 mx-auto mb-4" />
+                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Initializing account...</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                            {profile.status === 'CONNECTED' && (
+                                <button 
+                                    onClick={() => handleAction('disconnect', profile.id)}
+                                    className="flex-1 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Power size={14} /> Disconnect
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Log Section */}
+            <div className="glass-card flex flex-col">
+                <div className="p-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <History size={20} style={{ color: 'var(--text-secondary)' }} />
+                    <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>System Events Log</h4>
+                </div>
+                <div className="p-6 space-y-4 font-mono text-xs overflow-y-auto max-h-[300px]">
+                    {logs.map((log, i) => (
+                        <div key={i} className="flex gap-4">
+                            <span style={{ color: 'var(--text-muted)' }}>[{log.time}]</span>
+                            <span className={log.type === 'success' ? 'text-emerald-500' : log.type === 'error' ? 'text-red-400' : ''} style={log.type !== 'success' && log.type !== 'error' ? { color: 'var(--text-secondary)' } : {}}>
+                                {log.msg}
+                            </span>
+                        </div>
+                    ))}
+                    {logs.length === 0 && <p className="text-muted italic">Waiting for events...</p>}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* QR Section */}
-                <div className="glass-card flex flex-col items-center p-12 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4">
-                        <QrCode size={120} className="text-primary/5 -mr-8 -mt-8" />
-                    </div>
-
-                    <h4 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Device Linker</h4>
-
-                    {needsAuth && status.qrText ? (
-                        <div className="bg-white p-4 rounded-xl shadow-2xl mb-8">
-                            <QRCodeSVG
-                                value={status.qrText}
-                                size={256}
-                                level="M"
-                                includeMargin={true}
-                                className="rounded-lg"
-                            />
-                        </div>
-                    ) : isConnected ? (
-                        <div className="flex flex-col items-center py-12 text-center">
-                            <div className="w-24 h-24 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-6">
-                                <CheckCircle2 size={64} />
+            {/* Add Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="glass-card w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Add WhatsApp Account</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold mb-2 uppercase tracking-tight" style={{ color: 'var(--text-secondary)' }}>Account Name</label>
+                                <input 
+                                    type="text" 
+                                    value={newProfileName}
+                                    onChange={(e) => setNewProfileName(e.target.value)}
+                                    placeholder="e.g. Marketing Hub, Support Line"
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm focus:border-primary outline-none transition-all"
+                                    style={{ color: 'var(--text-primary)' }}
+                                />
                             </div>
-                            <h5 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Authenticated Successfully</h5>
-                            <p className="max-w-xs" style={{ color: 'var(--text-secondary)' }}>Your WhatsApp account is linked. Automated posts will trigger according to schedule.</p>
+                            <div className="flex gap-3 pt-4">
+                                <button 
+                                    onClick={() => setShowAddModal(false)}
+                                    className="flex-1 px-4 py-3 glass-card hover:bg-white/5 rounded-lg text-sm font-bold transition-all"
+                                    style={{ color: 'var(--text-secondary)' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleAddProfile}
+                                    disabled={isCreating}
+                                    className="flex-1 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isCreating ? <RefreshCcw size={18} className="animate-spin" /> : <Plus size={18} />}
+                                    {isCreating ? 'Creating...' : 'Add Account'}
+                                </button>
+                            </div>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center py-12 text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-6"></div>
-                            <p style={{ color: 'var(--text-muted)' }}>Generating login session...</p>
-                        </div>
-                    )}
-
-                    <div className="text-xs space-y-2 max-w-sm" style={{ color: 'var(--text-muted)' }}>
-                        <p className="font-bold" style={{ color: 'var(--text-secondary)' }}>Instructions:</p>
-                        <ol className="list-decimal pl-4 space-y-1">
-                            <li>Open WhatsApp on your phone</li>
-                            <li>Tap Menu (⋮) or Settings (⚙️)</li>
-                            <li>Select Linked Devices {'>'} Link a Device</li>
-                            <li>Point your camera at this screen to scan</li>
-                        </ol>
                     </div>
                 </div>
-
-                {/* Log Section */}
-                <div className="glass-card flex flex-col">
-                    <div className="p-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <History size={20} style={{ color: 'var(--text-secondary)' }} />
-                        <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Connection Logs</h4>
-                    </div>
-                    <div className="flex-1 p-6 space-y-4 font-mono text-xs overflow-y-auto max-h-[400px]">
-                        {logs.map((log, i) => (
-                            <div key={i} className="flex gap-4">
-                                <span style={{ color: 'var(--text-muted)' }}>[{log.time}]</span>
-                                <span className={log.type === 'success' ? 'text-emerald-500' : log.type === 'error' ? 'text-red-400' : ''} style={log.type !== 'success' && log.type !== 'error' ? { color: 'var(--text-secondary)' } : {}}>
-                                    {log.msg}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 };
