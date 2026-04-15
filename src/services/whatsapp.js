@@ -269,34 +269,123 @@ class WhatsAppClient {
         }
     }
 
-    async sendTextMessage(to, text) {
+    /**
+     * Checks if the underlying Puppeteer page is still alive.
+     * If the frame is detached, attempts to recover by refreshing the page.
+     * Returns true if recovery was successful or page was already alive.
+     */
+    async _ensurePageAlive() {
         try {
-            if (this.status !== 'CONNECTED') {
-                throw new Error('WhatsApp is not connected.');
+            const page = this.client.pupPage;
+            if (!page || page.isClosed()) {
+                console.warn('Puppeteer page is closed or missing. Cannot recover inline.');
+                return false;
             }
-            await this.client.sendMessage(to, text);
-            console.log(`Text message sent to ${to} successfully.`);
+            // Quick health check: try to evaluate something trivial on the page
+            await page.evaluate(() => document.title);
             return true;
-        } catch (error) {
-            console.error('Error sending WhatsApp text message:', error);
-            throw error;
+        } catch (err) {
+            console.warn('Page health check failed:', err.message);
+            try {
+                console.log('Attempting page recovery by reloading WhatsApp Web...');
+                const page = this.client.pupPage;
+                if (page && !page.isClosed()) {
+                    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                    // Wait a moment for WhatsApp Web JS to re-initialize inside the page
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    console.log('Page reloaded successfully. Re-checking health...');
+                    await page.evaluate(() => document.title);
+                    return true;
+                }
+            } catch (recoveryErr) {
+                console.error('Page recovery failed:', recoveryErr.message);
+            }
+            return false;
         }
     }
 
-    async sendImageWithCaption(groupId, imagePath, caption) {
-        try {
-            if (this.status !== 'CONNECTED') {
-                throw new Error('WhatsApp is not connected.');
-            }
+    /**
+     * Detects if an error is a detached frame error that is potentially recoverable.
+     */
+    _isDetachedFrameError(error) {
+        const msg = (error.message || '').toLowerCase();
+        return msg.includes('detached frame') ||
+               msg.includes('execution context was destroyed') ||
+               msg.includes('target closed') ||
+               msg.includes('session closed') ||
+               msg.includes('protocol error');
+    }
 
-            const media = MessageMedia.fromFilePath(imagePath);
-            await this.client.sendMessage(groupId, media, { caption: caption });
-            console.log(`Message sent to ${groupId} successfully.`);
-            return true;
-        } catch (error) {
-            console.error('Error sending WhatsApp message:', error);
-            throw error;
+    async sendTextMessage(to, text) {
+        const MAX_RETRIES = 2;
+        let lastError;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                if (this.status !== 'CONNECTED') {
+                    throw new Error('WhatsApp is not connected.');
+                }
+                await this.client.sendMessage(to, text);
+                console.log(`Text message sent to ${to} successfully.`);
+                return true;
+            } catch (error) {
+                lastError = error;
+                console.error(`Error sending WhatsApp text message (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
+
+                if (this._isDetachedFrameError(error) && attempt < MAX_RETRIES) {
+                    console.log('Detected detached frame error. Attempting page recovery before retry...');
+                    const recovered = await this._ensurePageAlive();
+                    if (recovered) {
+                        console.log('Page recovery succeeded. Retrying send...');
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        continue;
+                    } else {
+                        console.error('Page recovery failed. Will not retry.');
+                        break;
+                    }
+                }
+                // Non-recoverable error or final attempt
+                break;
+            }
         }
+        throw lastError;
+    }
+
+    async sendImageWithCaption(groupId, imagePath, caption) {
+        const MAX_RETRIES = 2;
+        let lastError;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                if (this.status !== 'CONNECTED') {
+                    throw new Error('WhatsApp is not connected.');
+                }
+
+                const media = MessageMedia.fromFilePath(imagePath);
+                await this.client.sendMessage(groupId, media, { caption: caption });
+                console.log(`Message sent to ${groupId} successfully.`);
+                return true;
+            } catch (error) {
+                lastError = error;
+                console.error(`Error sending WhatsApp message (attempt ${attempt}/${MAX_RETRIES}):`, error.message);
+
+                if (this._isDetachedFrameError(error) && attempt < MAX_RETRIES) {
+                    console.log('Detected detached frame error. Attempting page recovery before retry...');
+                    const recovered = await this._ensurePageAlive();
+                    if (recovered) {
+                        console.log('Page recovery succeeded. Retrying send...');
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        continue;
+                    } else {
+                        console.error('Page recovery failed. Will not retry.');
+                        break;
+                    }
+                }
+                // Non-recoverable error or final attempt
+                break;
+            }
+        }
+        throw lastError;
     }
 
     async disconnect() {

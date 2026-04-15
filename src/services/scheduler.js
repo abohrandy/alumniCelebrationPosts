@@ -292,7 +292,7 @@ async function processIntervalEvents() {
 }
 
 // ── Send Post (handles all event types) ──
-async function sendPost(event) {
+async function sendPost(event, _isRetry = false) {
     try {
         const db = await initDb();
         const settings = await db.get('SELECT * FROM settings WHERE id = 1');
@@ -426,6 +426,36 @@ async function sendPost(event) {
         console.error(errMsg);
         emitLog({ type: 'error', message: errMsg, timestamp: new Date().toISOString() });
         await logActivity(null, 'post_failed', event.id, errMsg, { error: error.message });
+
+        // ── Last-resort full reconnect + retry ──
+        // If this was a detached frame / session error AND we haven't already retried,
+        // do a full WhatsApp client reconnect and retry the entire post once.
+        const isFrameError = (error.message || '').toLowerCase().includes('detached frame') ||
+                             (error.message || '').toLowerCase().includes('execution context was destroyed') ||
+                             (error.message || '').toLowerCase().includes('target closed') ||
+                             (error.message || '').toLowerCase().includes('protocol error');
+
+        if (isFrameError && !_isRetry) {
+            console.log('=== LAST-RESORT RECOVERY: Full WhatsApp client reconnect ===');
+            emitLog({ type: 'info', message: `Attempting full reconnect to recover from frame error for ${displayName}...`, timestamp: new Date().toISOString() });
+            try {
+                await waClient.reconnect();
+                // Wait for the client to fully re-establish
+                await new Promise(resolve => setTimeout(resolve, 15000));
+
+                if (waClient.status === 'CONNECTED') {
+                    console.log('Full reconnect succeeded. Retrying post...');
+                    emitLog({ type: 'info', message: `Reconnected! Retrying post for ${displayName}...`, timestamp: new Date().toISOString() });
+                    await sendPost(event, true);
+                } else {
+                    console.error('Full reconnect completed but client is not CONNECTED. Giving up.');
+                    emitLog({ type: 'error', message: `Reconnect failed (status: ${waClient.status}). Post for ${displayName} will not be retried.`, timestamp: new Date().toISOString() });
+                }
+            } catch (reconnectErr) {
+                console.error('Full reconnect failed:', reconnectErr.message);
+                emitLog({ type: 'error', message: `Full reconnect failed: ${reconnectErr.message}. Post for ${displayName} abandoned.`, timestamp: new Date().toISOString() });
+            }
+        }
     }
 }
 
