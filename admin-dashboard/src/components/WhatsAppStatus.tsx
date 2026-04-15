@@ -388,8 +388,8 @@ const WhatsAppStatus = () => {
 
             {/* Edit / Settings Modal */}
             {editingProfile && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="glass-card w-full max-w-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+                    <div className="glass-card w-full max-w-3xl p-6 sm:p-10 shadow-2xl animate-in zoom-in-95 duration-200 my-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Account Settings: {editingProfile.name}</h3>
                             <button onClick={() => setEditingProfile(null)} className="text-muted hover:text-white">✕</button>
@@ -407,7 +407,7 @@ const WhatsAppStatus = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-[10px] font-bold mb-2 uppercase tracking-widest text-primary">Primary Group ID</label>
                                     <div className="flex gap-2">
