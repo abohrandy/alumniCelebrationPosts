@@ -38,13 +38,19 @@ class WhatsAppClient {
             console.log('Using chromium at:', process.env.PUPPETEER_EXECUTABLE_PATH);
         }
 
+        // Cache WhatsApp Web locally on the persistent volume so restarts are fast.
+        // On first run it downloads from WhatsApp's CDN; after that it loads from disk.
+        const wwebCachePath = path.join(baseDir, 'wwebjs_cache');
+
         this.client = new Client({
             authStrategy: new LocalAuth({
                 dataPath: authPath
             }),
-            puppeteer: puppeteerOptions
-            // Note: webVersionCache remote URL removed — it caused silent startup hangs
-            // when Railway could not reach the external GitHub URL.
+            puppeteer: puppeteerOptions,
+            webVersionCache: {
+                type: 'local',
+                path: wwebCachePath
+            }
         });
 
         this.status = 'DISCONNECTED';
@@ -186,12 +192,17 @@ class WhatsAppClient {
                 reconnectPuppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
             }
 
+            const wwebCachePath = path.join(baseDir, 'wwebjs_cache');
+
             this.client = new Client({
                 authStrategy: new LocalAuth({
                     dataPath: authPath
                 }),
-                puppeteer: reconnectPuppeteerOptions
-                // No webVersionCache remote — avoids startup hangs on Railway
+                puppeteer: reconnectPuppeteerOptions,
+                webVersionCache: {
+                    type: 'local',
+                    path: wwebCachePath
+                }
             });
             return this.init();
         } catch (error) {
