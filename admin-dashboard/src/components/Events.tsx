@@ -483,9 +483,8 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     onChange={(e) => setSelectedProfileId(e.target.value)}
                                     className="w-full rounded-lg px-3 py-2"
                                     style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-                                    required
                                 >
-                                    <option value="" disabled>Select an account</option>
+                                    <option value="">App Default (Follow Primary Profile)</option>
                                     {profiles.map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
@@ -581,7 +580,10 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             <div>
                                                 <p className="text-[10px] text-slate-500 uppercase">WhatsApp Account</p>
                                                 <p className="text-sm font-medium">
-                                                    {profiles.find(p => p.id === viewingEvent.whatsapp_profile_id)?.name || `Profile #${viewingEvent.whatsapp_profile_id}`}
+                                                    {viewingEvent.whatsapp_profile_id 
+                                                        ? (profiles.find(p => p.id === viewingEvent.whatsapp_profile_id)?.name || `Profile #${viewingEvent.whatsapp_profile_id}`)
+                                                        : "App Default (Follows Primary)"
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
