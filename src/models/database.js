@@ -234,7 +234,7 @@ async function initDb() {
         // ── CRITICAL MIGRATION: Fix event_type constraint case mismatch and schema changes ──
         // If we detect the old capitalized constraints, we must recreate the table
         const tableSchema = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='events'");
-        if (tableSchema && (tableSchema.sql.includes("'Birthday'") || columnNames.includes('first_name') || !tableSchema.sql.includes('one_day_event'))) {
+        if (tableSchema && (tableSchema.sql.includes("'Birthday'") || columnNames.includes('first_name') || !tableSchema.sql.includes('one_day_event') || !tableSchema.sql.includes('recurrent_announcement'))) {
             console.log('Old constraints, missing event types, or legacy columns detected. Recreating events table...');
             await db.exec('PRAGMA foreign_keys = OFF');
             await db.exec('BEGIN TRANSACTION');
@@ -268,6 +268,8 @@ async function initDb() {
             const fullNameSelect = hasFirstName 
                 ? "IFNULL(full_name, TRIM(IFNULL(first_name, '') || ' ' || IFNULL(second_name, '')))"
                 : "full_name";
+            
+            const repeatAnnuallySelect = columnNames.includes('repeat_annually') ? 'repeat_annually' : '0';
 
             await db.exec(`
                 INSERT INTO events_new (
@@ -283,11 +285,12 @@ async function initDb() {
                     CASE
                         WHEN event_type = 'Birthday' THEN 'birthday'
                         WHEN event_type = 'Wedding Anniversary' THEN 'wedding_anniversary'
+                        WHEN event_type = 'monday_market' THEN 'recurrent_announcement'
                         ELSE LOWER(event_type)
                     END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, 0, created_at
+                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, ${repeatAnnuallySelect}, created_at
                 FROM events
             `);
 
