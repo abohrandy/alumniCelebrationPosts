@@ -43,7 +43,8 @@ class WhatsAppClient {
                 useMultiFileAuthState,
                 fetchLatestBaileysVersion,
                 DisconnectReason,
-                makeCacheableSignalKeyStore
+                makeCacheableSignalKeyStore,
+                Browsers
             } = await getBaileys();
 
             const baseDir = process.env.DATA_DIR || 'C:\\';
@@ -69,7 +70,7 @@ class WhatsAppClient {
                 },
                 logger: silentLogger,
                 printQRInTerminal: false,
-                browser: [`MUAAFCT-${this.name}`, 'Chrome', '120.0.0'],
+                browser: Browsers.appropriate('Desktop'),
                 syncFullHistory: false,
                 generateHighQualityLinkPreview: false
             });
