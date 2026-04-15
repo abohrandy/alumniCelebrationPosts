@@ -28,7 +28,6 @@ class WhatsAppClient {
                 '--disable-breakpad',
                 '--disable-canvas-sketch-api',
                 '--disable-domain-reliability',
-                // Additional explicit optimization flags to reduce RAM usage and cost on Railway
                 '--disable-software-rasterizer',
                 '--disable-background-networking',
                 '--disable-background-timer-throttling',
@@ -44,10 +43,10 @@ class WhatsAppClient {
                 '--safebrowsing-disable-auto-update',
                 '--mute-audio',
                 '--disable-infobars',
-                '--disable-site-isolation-trials', // Major memory saver for headless Chromium
-                '--single-process', // Experimental: Forces everything into one process to save RAM
+                '--disable-site-isolation-trials',
+                // NOTE: --single-process removed — it is experimental and causes Chromium crashes
                 '--disable-renderer-backgrounding',
-                '--js-flags="--max-old-space-size=192"'
+                '--js-flags=--max-old-space-size=256'
             ]
         };
 
@@ -80,6 +79,7 @@ class WhatsAppClient {
             return;
         }
         this.initialized = true;
+        this._startupResolved = false;
 
         const baseDir = process.env.DATA_DIR || 'C:\\';
         const tempPath = path.join(baseDir, 'wa_temp_' + Date.now());
@@ -94,6 +94,7 @@ class WhatsAppClient {
         console.log('WhatsApp Client initializing with TEMP:', process.env.TEMP);
 
         this.client.on('qr', (qr) => {
+            this._startupResolved = true;
             this.status = 'AUTH_REQUIRED';
             this.qrText = qr;
             console.log('QR RECEIVED', qr);
@@ -103,6 +104,7 @@ class WhatsAppClient {
         });
 
         this.client.on('ready', async () => {
+            this._startupResolved = true;
             this.status = 'CONNECTED';
             this.qrText = '';
             console.log('Client is ready!');
@@ -111,11 +113,13 @@ class WhatsAppClient {
         });
 
         this.client.on('authenticated', () => {
+            this._startupResolved = true;
             console.log('AUTHENTICATED');
             emitLog({ type: 'info', message: 'WhatsApp session authenticated.', timestamp: new Date().toISOString() });
         });
 
         this.client.on('auth_failure', (msg) => {
+            this._startupResolved = true;
             this.status = 'DISCONNECTED';
             this.lastError = 'Auth failure: ' + msg;
             console.error('AUTHENTICATION FAILURE', msg);
@@ -128,8 +132,26 @@ class WhatsAppClient {
             console.log('Client was logged out', reason);
             emitLog({ type: 'error', message: 'WhatsApp Client disconnected/logged out.', timestamp: new Date().toISOString() });
             emitStatus(this.getStatus());
-            this.client.initialize(); // Try to reconnect
+            // Schedule a reconnect with a short delay to avoid rapid loops
+            setTimeout(() => this.reconnect().catch(e => console.error('Auto-reconnect failed:', e.message)), 5000);
         });
+
+        // ── Startup Watchdog ──
+        // If Chromium crashes silently during startup, neither 'qr' nor 'ready' will fire.
+        // After 3 minutes, if we never resolved, force a full reconnect.
+        const STARTUP_TIMEOUT_MS = 3 * 60 * 1000;
+        setTimeout(async () => {
+            if (!this._startupResolved) {
+                console.error('=== STARTUP WATCHDOG: Chromium did not become ready within 3 minutes. Forcing reconnect. ===');
+                emitLog({ type: 'error', message: 'Chromium startup timed out. Attempting automatic recovery...', timestamp: new Date().toISOString() });
+                try {
+                    this.initialized = false;
+                    await this.reconnect();
+                } catch (e) {
+                    console.error('Watchdog reconnect failed:', e.message);
+                }
+            }
+        }, STARTUP_TIMEOUT_MS);
 
         // Trigger GC once ready to clean up initialization overhead
         if (global.gc) {
@@ -141,9 +163,7 @@ class WhatsAppClient {
 
         const initResult = this.client.initialize();
 
-        // ── Aggressive Memory Strategy: Request Interception ──
-        // Once the browser is launched, we intercept and block weight resources (images, css, etc)
-        // Note: pupPage is usually available shortly after initialize()
+        // ── Request Interception: block heavy resources to reduce RAM ──
         setTimeout(async () => {
             try {
                 if (this.client.pupPage) {
@@ -157,7 +177,7 @@ class WhatsAppClient {
                             req.continue();
                         }
                     });
-                    console.log('--- Aggressive Resource Interception Enabled (Blocking CSS/Images/Fonts) ---');
+                    console.log('--- Resource Interception Enabled (Blocking CSS/Images/Fonts) ---');
                 }
             } catch (err) {
                 console.error('Failed to set request interception:', err.message);
@@ -226,7 +246,6 @@ class WhatsAppClient {
                     '--disable-breakpad',
                     '--disable-canvas-sketch-api',
                     '--disable-domain-reliability',
-                    // Additional explicit optimization flags to reduce RAM usage and cost on Railway
                     '--disable-software-rasterizer',
                     '--disable-background-networking',
                     '--disable-background-timer-throttling',
@@ -242,10 +261,10 @@ class WhatsAppClient {
                     '--safebrowsing-disable-auto-update',
                     '--mute-audio',
                     '--disable-infobars',
-                    '--disable-site-isolation-trials', // Major memory saver for headless Chromium
-                    '--single-process',
+                    '--disable-site-isolation-trials',
+                    // NOTE: --single-process removed — causes Chromium crashes
                     '--disable-renderer-backgrounding',
-                    '--js-flags="--max-old-space-size=192"'
+                    '--js-flags=--max-old-space-size=256'
                 ]
             };
             if (process.env.PUPPETEER_EXECUTABLE_PATH) {
