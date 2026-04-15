@@ -28,6 +28,7 @@ class WhatsAppClient {
                 '--disable-breakpad',
                 '--disable-canvas-sketch-api',
                 '--disable-domain-reliability',
+                '--single-process',
                 '--js-flags=--max-old-space-size=512'
             ]
         };
@@ -38,18 +39,14 @@ class WhatsAppClient {
             console.log('Using chromium at:', process.env.PUPPETEER_EXECUTABLE_PATH);
         }
 
-        // Cache WhatsApp Web locally on the persistent volume so restarts are fast.
-        // On first run it downloads from WhatsApp's CDN; after that it loads from disk.
-        const wwebCachePath = path.join(baseDir, 'wwebjs_cache');
-
         this.client = new Client({
             authStrategy: new LocalAuth({
                 dataPath: authPath
             }),
             puppeteer: puppeteerOptions,
             webVersionCache: {
-                type: 'local',
-                path: wwebCachePath
+                type: 'remote',
+                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
             }
         });
 
@@ -185,6 +182,7 @@ class WhatsAppClient {
                     '--disable-breakpad',
                     '--disable-canvas-sketch-api',
                     '--disable-domain-reliability',
+                    '--single-process',
                     '--js-flags=--max-old-space-size=512'
                 ]
             };
@@ -200,8 +198,8 @@ class WhatsAppClient {
                 }),
                 puppeteer: reconnectPuppeteerOptions,
                 webVersionCache: {
-                    type: 'local',
-                    path: wwebCachePath
+                    type: 'remote',
+                    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
                 }
             });
             return this.init();
