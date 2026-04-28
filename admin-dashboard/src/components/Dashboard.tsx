@@ -19,7 +19,6 @@ const TYPE_COLORS: Record<string, string> = {
     birthday: 'bg-pink-500/20 text-pink-400',
     wedding_anniversary: 'bg-purple-500/20 text-purple-400',
     one_day_event: 'bg-amber-500/20 text-amber-400',
-    monday_market: 'bg-emerald-500/20 text-emerald-400',
     recurrent_announcement: 'bg-emerald-500/20 text-emerald-400',
     announcement: 'bg-blue-500/20 text-blue-400'
 };
@@ -28,7 +27,6 @@ const TYPE_LABELS: Record<string, string> = {
     birthday: 'Birthday',
     wedding_anniversary: 'Wedding',
     one_day_event: 'Event',
-    monday_market: 'Recurrent',
     recurrent_announcement: 'Recurrent',
     announcement: 'Announce'
 };
@@ -51,8 +49,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
     const activeEvents = events.filter(e => e.status === 'active');
     const birthdays = events.filter(e => e.event_type === 'birthday');
     const weddings = events.filter(e => e.event_type === 'wedding_anniversary');
-    const markets = events.filter(e => e.event_type === 'monday_market');
-    const recurrents = events.filter(e => e.event_type === 'recurrent_announcement');
+    const recurrents = events.filter(e => e.event_type === 'recurrent_announcement' || e.event_type === 'monday_market');
     const announcements = events.filter(e => e.event_type === 'announcement');
     const oneDayEvents = events.filter(e => e.event_type === 'one_day_event');
 
@@ -60,7 +57,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
         { label: 'Total Events', value: events.length, icon: CalendarDays, color: 'text-primary', filter: 'all' },
         { label: 'Active Events', value: activeEvents.length, icon: TrendingUp, color: 'text-emerald-400', filter: 'all' },
         { label: 'Birthdays', value: birthdays.length, icon: Users, color: 'text-pink-400', filter: 'birthday' },
-        { label: 'Recurring', value: markets.length + recurrents.length + announcements.length, icon: Send, color: 'text-blue-400', filter: 'recurring' },
+        { label: 'Recurring', value: recurrents.length + announcements.length, icon: Send, color: 'text-blue-400', filter: 'recurring' },
     ];
 
     const getName = (e: EventItem) => {
@@ -173,7 +170,6 @@ function Dashboard({ onNavigate }: DashboardProps) {
                         { type: 'birthday', label: '🎂 Birthdays', count: birthdays.length },
                         { type: 'wedding_anniversary', label: '💍 Weddings', count: weddings.length },
                         { type: 'one_day_event', label: '✨ Events', count: oneDayEvents.length },
-                        { type: 'monday_market', label: '📈 Monday M.', count: markets.length },
                         { type: 'recurrent_announcement', label: '🔄 Recurrent', count: recurrents.length },
                         { type: 'announcement', label: '📢 Announcements', count: announcements.length },
                     ].map(item => (

@@ -39,7 +39,6 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
     birthday: 'Birthday',
     wedding_anniversary: 'Wedding Anniversary',
     one_day_event: 'Single Day Event',
-    monday_market: 'Recurrent Announcement',
     recurrent_announcement: 'Recurrent Announcement',
     announcement: 'Announcement'
 };
@@ -48,7 +47,6 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
     birthday: 'bg-pink-500/20 text-pink-500',
     wedding_anniversary: 'bg-purple-500/20 text-purple-500',
     one_day_event: 'bg-amber-500/20 text-amber-500',
-    monday_market: 'bg-emerald-500/20 text-emerald-500',
     recurrent_announcement: 'bg-emerald-500/20 text-emerald-500',
     announcement: 'bg-blue-500/20 text-blue-500'
 };
@@ -153,7 +151,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setTitle(event.title || '');
         setCaption(event.caption || event.message_template || '');
         setEventDate(event.event_date || '');
-        setScheduleType(event.schedule_type || (event.event_type === 'monday_market' ? 'weekly' : 'single_date'));
+        setScheduleType(event.schedule_type || 'single_date');
         setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : '');
         setPostTime(event.post_time || '06:00');
         setExpiryDate(event.expiry_date || '');
@@ -369,7 +367,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         const type = e.target.value;
                                         if (type === 'birthday' || type === 'wedding_anniversary' || type === 'one_day_event') {
                                             setScheduleType('single_date');
-                                        } else if (type === 'monday_market' || type === 'recurrent_announcement') {
+                                        } else if (type === 'recurrent_announcement') {
                                             setScheduleType('weekly');
                                         } else {
                                             setScheduleType('interval');
@@ -382,7 +380,6 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
                                     <option value="one_day_event">✨ One Day Event</option>
                                     <option value="recurrent_announcement">🔄 Recurrent Announcement</option>
-                                    <option value="monday_market">📈 Monday Market</option>
                                     <option value="announcement">📢 Announcement</option>
                                 </select>
                             </div>
@@ -422,7 +419,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
 
-                                    {(eventType === 'announcement' || eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                                    {(eventType === 'announcement' || eventType === 'recurrent_announcement') && (
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Schedule Type</label>
@@ -460,13 +457,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         </div>
                                     )}
                                     
-                                    {eventType === 'monday_market' && (
+                                    {eventType === 'recurrent_announcement' && (
                                         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
                                             📅 Posts automatically every <strong>Monday at 5:00 AM</strong> to the First Group ONLY (Round Robin)
                                         </div>
                                     )}
 
-                                    {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                                    {(eventType === 'recurrent_announcement') && (
                                         <div className="space-y-3 mt-4">
                                             <label className="block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                                                 <Send size={14} className="inline mr-1" />
@@ -532,10 +529,10 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
-                                    Design Image or Video {(eventType === 'monday_market' || eventType === 'recurrent_announcement') ? '(Select Multiple)' : ''}
+                                    Design Image or Video {(eventType === 'recurrent_announcement') ? '(Select Multiple)' : ''}
                                 </label>
                                 <input type="file" accept="image/*,video/*"
-                                    multiple={eventType === 'monday_market' || eventType === 'recurrent_announcement'}
+                                    multiple={eventType === 'recurrent_announcement'}
                                     onChange={handleImageChange}
                                     className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-medium file:cursor-pointer"
                                     required={!editingId} />
@@ -597,7 +594,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 <div className={`p-2 rounded-lg ${EVENT_TYPE_COLORS[viewingEvent.event_type]}`}>
                                     {viewingEvent.event_type === 'birthday' && <Calendar size={20} />}
                                     {viewingEvent.event_type === 'wedding_anniversary' && <Plus size={20} />}
-                                    {(viewingEvent.event_type === 'monday_market' || viewingEvent.event_type === 'recurrent_announcement') && <Repeat size={20} />}
+                                    {(viewingEvent.event_type === 'recurrent_announcement') && <Repeat size={20} />}
                                     {viewingEvent.event_type === 'announcement' && <Send size={20} />}
                                 </div>
                                 <div>
