@@ -521,15 +521,20 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 <div>
                                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Caption / Message</label>
                                     <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3}
-                                        placeholder={isPerson ? 'Leave empty for default template. Use {name} for celebrant name and {phone} for phone number.' : 'Enter post caption...'}
+                                        placeholder={isPerson ? 'Leave empty for default template. Use {name} and {phone} for automatic replacement.' : 'Enter post caption...'}
                                         className="w-full rounded-lg px-3 py-2 resize-y min-h-[80px]" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                                    {isPerson && (
+                                        <div className="mt-1 text-[10px] text-slate-500 italic">
+                                            Tip: Use <strong>{'{name}'}</strong> for celebrant name and <strong>{'{phone}'}</strong> for phone number.
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             <div>
                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                                     <Image size={14} className="inline mr-1" />
-                                    Design Image or Video {(eventType === 'recurrent_announcement') ? '(Select Multiple)' : ''}
+                                    Upload designed image or video? {(eventType === 'recurrent_announcement') ? '(Select Multiple)' : ''}
                                 </label>
                                 <input type="file" accept="image/*,video/*"
                                     multiple={eventType === 'recurrent_announcement'}
