@@ -36,6 +36,7 @@ const Celebrants = () => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [ratioWarning, setRatioWarning] = useState(false);
     const [sortBy, setSortBy] = useState('upcoming');
+    const [postingIds, setPostingIds] = useState<number[]>([]);
 
 
 
@@ -120,12 +121,20 @@ const Celebrants = () => {
     };
 
     const handlePostNow = async (id: number) => {
+        if (postingIds.includes(id)) return;
+
         if (window.confirm('Are you sure you want to send this post to WhatsApp right now?')) {
+            setPostingIds(prev => [...prev, id]);
             try {
                 await axios.post(`http://localhost:3000/api/celebrants/${id}/post-now`);
                 alert('Post attempt initiated. Check the WhatsApp Logs module to see the status.');
-            } catch (error) {
-                alert('Failed to initiate post now.');
+                // Refresh list since status might have changed to inactive
+                fetchCelebrants();
+            } catch (error: any) {
+                const errorMsg = error.response?.data?.error || 'Failed to initiate post now.';
+                alert(errorMsg);
+            } finally {
+                setPostingIds(prev => prev.filter(pid => pid !== id));
             }
         }
     };
@@ -235,8 +244,17 @@ const Celebrants = () => {
                                 <p className="text-xs text-slate-500 mt-1">{c.event_date}</p>
                             </div>
                             <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handlePostNow(c.id)} title="Post Now" className="p-2 text-green-400 hover:text-white hover:bg-green-500/20 rounded-lg">
-                                    <Send size={16} />
+                                <button 
+                                    onClick={() => handlePostNow(c.id)} 
+                                    title="Post Now" 
+                                    disabled={postingIds.includes(c.id)}
+                                    className={`p-2 rounded-lg transition-all ${
+                                        postingIds.includes(c.id) 
+                                        ? 'text-slate-500 bg-slate-800 cursor-not-allowed' 
+                                        : 'text-green-400 hover:text-white hover:bg-green-500/20'
+                                    }`}
+                                >
+                                    <Send size={16} className={postingIds.includes(c.id) ? 'animate-pulse' : ''} />
                                 </button>
                                 <button onClick={() => handleEdit(c)} title="Edit Details" className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
                                     <Edit2 size={16} />

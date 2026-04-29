@@ -164,6 +164,11 @@ async function processTodayEvents() {
                 }
 
                 console.log(`Executing scheduled post for ${displayName} (target time was ${targetHour}:${String(targetMin).padStart(2, '0')})`);
+                
+                // --- Race Condition Prevention ---
+                // Mark as inactive BEFORE initiating sendPost to prevent manual triggers from conflicting
+                await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [event.id]);
+
                 await module.exports.sendPost(event);
                 
                 // After one successful post attempt, we exit this run. 
@@ -347,6 +352,19 @@ async function processIntervalEvents() {
 async function sendPost(event, _isRetry = false) {
     try {
         const db = await initDb();
+
+        // --- Final Double-Post Guard ---
+        // Check if this specific event was already successfully posted today (local time)
+        const alreadySent = await db.get(
+            "SELECT id FROM activity_logs WHERE event_id = ? AND action = 'post_sent' AND date(created_at, 'localtime') = date('now', 'localtime')",
+            [event.id]
+        );
+
+        if (alreadySent && !_isRetry) {
+            console.log(`[WA-Guard] Skipping sendPost for "${event.title || event.id}" because it was already sent today.`);
+            return;
+        }
+
         const settings = await db.get('SELECT * FROM settings WHERE id = 1');
         const groupId = settings?.whatsapp_group_id || process.env.WHATSAPP_GROUP_ID;
         const groupId2 = settings?.whatsapp_group_id_2 || '';

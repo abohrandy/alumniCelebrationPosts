@@ -244,11 +244,20 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     };
 
     const handlePostNow = async (id: number) => {
+        if (postingIds.includes(id)) return;
+        if (!confirm('Are you sure you want to send this post right now?')) return;
+
+        setPostingIds(prev => [...prev, id]);
         try {
             await axios.post(`/api/events/${id}/post-now`);
-            alert('Post request sent! Check activity logs.');
-        } catch (error) {
+            alert('Post request sent! Event has been paused to prevent duplicates. Check activity logs.');
+            fetchEvents(); // Refresh to show updated status
+        } catch (error: any) {
             console.error('Failed to post:', error);
+            const msg = error.response?.data?.error || 'Failed to initiate post';
+            alert(msg);
+        } finally {
+            setPostingIds(prev => prev.filter(pid => pid !== id));
         }
     };
 
@@ -836,12 +845,19 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         <Eye size={14} />
                                         <span className="sm:hidden text-xs">View</span>
                                     </button>
-                                    <button onClick={() => handlePostNow(event.id)}
-                                        className="p-1.5 lg:p-2 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors flex items-center gap-1"
-                                        style={{ color: 'var(--text-secondary)' }}
-                                        title="Post Now">
-                                        <Send size={14} />
-                                        <span className="sm:hidden text-xs">Post</span>
+                                    <button 
+                                        onClick={() => handlePostNow(event.id)}
+                                        disabled={postingIds.includes(event.id)}
+                                        className={`p-1.5 lg:p-2 rounded-lg transition-colors flex items-center gap-1 ${
+                                            postingIds.includes(event.id)
+                                            ? 'text-slate-500 bg-slate-800 cursor-not-allowed'
+                                            : 'hover:text-green-400 hover:bg-green-500/10'
+                                        }`}
+                                        style={postingIds.includes(event.id) ? {} : { color: 'var(--text-secondary)' }}
+                                        title="Post Now"
+                                    >
+                                        <Send size={14} className={postingIds.includes(event.id) ? 'animate-pulse' : ''} />
+                                        <span className="sm:hidden text-xs">{postingIds.includes(event.id) ? 'Sending...' : 'Post'}</span>
                                     </button>
                                     <button onClick={() => openEditForm(event)}
                                         className="p-1.5 lg:p-2 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1"

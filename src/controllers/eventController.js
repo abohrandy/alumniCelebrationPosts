@@ -306,10 +306,28 @@ const eventController = {
             const db = await initDb();
             const event = await db.get("SELECT * FROM events WHERE id = ?", [id]);
             if (!event) return res.status(404).json({ error: 'Event not found.' });
+
+            // 1. Double-Post Prevention: Check if already sent today (local time)
+            const alreadySent = await db.get(
+                "SELECT id FROM activity_logs WHERE event_id = ? AND action = 'post_sent' AND date(created_at, 'localtime') = date('now', 'localtime')",
+                [id]
+            );
+
+            if (alreadySent) {
+                return res.status(400).json({ error: 'This event has already been posted today.' });
+            }
+
+            // 2. Race Condition Prevention: Mark as inactive IMMEDIATELY
+            // This prevents the scheduler from picking it up if it runs in the next few seconds
+            await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [id]);
+
             const { sendPost } = require('../services/scheduler');
+            // We pass the updated event object or let sendPost handle it
             setImmediate(() => sendPost(event));
-            res.json({ message: 'Post request initiated.' });
+            
+            res.json({ message: 'Post request initiated. Event marked as inactive to prevent duplicates.' });
         } catch (error) {
+            console.error('Error in postNow:', error);
             res.status(500).json({ error: 'Internal server error.' });
         }
     }
