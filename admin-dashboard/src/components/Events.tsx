@@ -66,6 +66,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [sortBy, setBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [profiles, setProfiles] = useState<WhatsAppProfile[]>([]);
+    const [postingIds, setPostingIds] = useState<number[]>([]);
 
 
     // Form state
