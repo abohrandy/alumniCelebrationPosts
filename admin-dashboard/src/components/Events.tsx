@@ -179,6 +179,10 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const submitter = (e.nativeEvent as any).submitter as HTMLButtonElement | undefined;
+        const action = submitter?.value || 'save';
+        
         setSubmitting(true);
 
         try {
@@ -222,8 +226,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 await axios.post('/api/events', formData);
             }
 
-            setShowForm(false);
+            if (action === 'save') {
+                setShowForm(false);
+            }
             resetForm();
+            if (action === 'save_and_new') {
+                setShowForm(true);
+            }
             fetchEvents();
         } catch (error: any) {
             console.error('Failed to save event:', error);
@@ -589,11 +598,21 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                             </div>
 
                             {/* Submit */}
-                            <button type="submit" disabled={submitting}
-                                className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50"
-                                style={{ backgroundColor: 'var(--color-primary)', cursor: submitting ? 'not-allowed' : 'pointer', position: 'relative', zIndex: 10 }}>
-                                {submitting ? 'Saving...' : (editingId ? 'Update Event' : 'Create Event')}
-                            </button>
+                            <div className="flex gap-3 mt-2">
+                                <button type="submit" value="save" disabled={submitting}
+                                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50"
+                                    style={{ backgroundColor: 'var(--color-primary)', cursor: submitting ? 'not-allowed' : 'pointer', position: 'relative', zIndex: 10 }}>
+                                    {submitting ? 'Saving...' : (editingId ? 'Update Event' : 'Save Event')}
+                                </button>
+                                
+                                {!editingId && (
+                                    <button type="submit" value="save_and_new" disabled={submitting}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
+                                        style={{ backgroundColor: 'transparent', border: '1px solid var(--color-primary)', color: 'var(--color-primary)', cursor: submitting ? 'not-allowed' : 'pointer', position: 'relative', zIndex: 10 }}>
+                                        {submitting ? 'Saving...' : 'Save & Create Another'}
+                                    </button>
+                                )}
+                            </div>
                         </form>
                     </div>
                 </div>

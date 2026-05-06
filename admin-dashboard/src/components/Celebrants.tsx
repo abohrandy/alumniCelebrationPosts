@@ -83,6 +83,10 @@ const Celebrants = () => {
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
+        
+        const submitter = e.nativeEvent?.submitter as HTMLButtonElement | undefined;
+        const action = submitter?.value || 'save';
+        
         const data = new FormData();
         Object.keys(formData).forEach((k) => {
             const key = k as keyof typeof formData;
@@ -97,9 +101,14 @@ const Celebrants = () => {
             } else {
                 await axios.post('http://localhost:3000/api/celebrants', data);
             }
-            setShowModal(false);
+            if (action === 'save') {
+                setShowModal(false);
+            }
             fetchCelebrants();
             resetForm();
+            if (action === 'save_and_new') {
+                setShowModal(true);
+            }
         } catch (error) {
             alert('Failed to save celebrant');
         }
@@ -349,11 +358,16 @@ const Celebrants = () => {
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-slate-700/50 flex justify-end gap-3">
+                            <div className="pt-6 border-t border-slate-700/50 flex flex-wrap justify-end gap-3">
                                 <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="px-6 py-2 rounded-lg font-bold text-slate-400 hover:text-white transition-colors">
                                     Cancel
                                 </button>
-                                <button type="submit" className="px-6 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg shadow-lg shadow-primary/20 transition-all">
+                                {!editingId && (
+                                    <button type="submit" value="save_and_new" className="px-6 py-2 border border-primary text-primary hover:bg-primary/10 font-bold rounded-lg transition-all">
+                                        Save & Add Another
+                                    </button>
+                                )}
+                                <button type="submit" value="save" className="px-6 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg shadow-lg shadow-primary/20 transition-all">
                                     {editingId ? 'Save Changes' : 'Save Celebrant'}
                                 </button>
                             </div>
