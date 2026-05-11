@@ -443,7 +443,7 @@ async function sendPost(event, _isRetry = false) {
             console.warn('No primary group ID found for this post.');
         }
 
-        // Send to secondary group if configured (skip for legacy monday_market)
+        // Send to secondary group if configured (skip ONLY for Monday Market)
         if (targetGroupId2 && event.event_type !== 'monday_market') {
             try {
                 await instance.sendImageWithCaption(targetGroupId2, imagePath, caption);

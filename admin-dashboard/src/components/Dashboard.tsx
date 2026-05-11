@@ -19,6 +19,7 @@ const TYPE_COLORS: Record<string, string> = {
     birthday: 'bg-pink-500/20 text-pink-400',
     wedding_anniversary: 'bg-purple-500/20 text-purple-400',
     one_day_event: 'bg-amber-500/20 text-amber-400',
+    monday_market: 'bg-orange-500/20 text-orange-400',
     recurrent_announcement: 'bg-emerald-500/20 text-emerald-400',
     announcement: 'bg-blue-500/20 text-blue-400'
 };
@@ -27,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
     birthday: 'Birthday',
     wedding_anniversary: 'Wedding',
     one_day_event: 'Event',
+    monday_market: 'Market',
     recurrent_announcement: 'Recurrent',
     announcement: 'Announce'
 };
@@ -171,6 +173,7 @@ function Dashboard({ onNavigate }: DashboardProps) {
                         { type: 'wedding_anniversary', label: '💍 Weddings', count: weddings.length },
                         { type: 'one_day_event', label: '✨ Events', count: oneDayEvents.length },
                         { type: 'recurrent_announcement', label: '🔄 Recurrent', count: recurrents.length },
+                        { type: 'monday_market', label: '🏪 Market', count: events.filter(e => e.event_type === 'monday_market').length },
                         { type: 'announcement', label: '📢 Announcements', count: announcements.length },
                     ].map(item => (
                         <div
