@@ -481,13 +481,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     
                                     {eventType === 'monday_market' && (
                                         <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-sm text-orange-400">
-                                            📅 <strong>Monday Market:</strong> Posts automatically every Monday at 5:00 AM to the <strong>Primary Group ONLY</strong>.
+                                            📅 <strong>Monday Market:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} days at ${postTime || 'specified time'}`} to the <strong>Primary Group ONLY</strong>.
                                         </div>
                                     )}
 
                                     {eventType === 'recurrent_announcement' && (
                                         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
-                                            📅 <strong>Recurrent Announcement:</strong> Posts automatically every Monday at 5:00 AM to <strong>ALL configured groups</strong>.
+                                            📅 <strong>Recurrent Announcement:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} days at ${postTime || 'specified time'}`} to <strong>ALL configured groups</strong>.
                                         </div>
                                     )}
 
