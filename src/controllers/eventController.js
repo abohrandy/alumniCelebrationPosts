@@ -317,15 +317,51 @@ const eventController = {
                 return res.status(400).json({ error: 'This event has already been posted today.' });
             }
 
-            // 2. Race Condition Prevention: Mark as inactive IMMEDIATELY
-            // This prevents the scheduler from picking it up if it runs in the next few seconds
-            await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [id]);
+            // Fetch images and captions to use the correct round-robin item
+            const images = await db.all('SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+            const captions = await db.all('SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+
+            let selectedImagePath = event.design_image_path;
+            let nextImageIndex = event.current_image_index;
+            if (images.length > 0) {
+                const imgIndex = (event.current_image_index || 0) % images.length;
+                selectedImagePath = images[imgIndex].image_path;
+                nextImageIndex = (imgIndex + 1) % images.length;
+            }
+
+            let selectedCaption = event.caption;
+            let nextCaptionIndex = event.current_caption_index || 0;
+            if (captions.length > 0) {
+                const capIndex = (event.current_caption_index || 0) % captions.length;
+                selectedCaption = captions[capIndex].caption_text;
+                nextCaptionIndex = (capIndex + 1) % captions.length;
+            }
+
+            const eventToPost = { 
+                ...event, 
+                design_image_path: selectedImagePath,
+                caption: selectedCaption
+            };
+
+            // 2. Race Condition Prevention & Lifecycle Updates
+            let statusMessage = 'Post request initiated.';
+            if (['birthday', 'wedding_anniversary', 'one_day_event'].includes(event.event_type)) {
+                // Mark as inactive IMMEDIATELY to prevent the minutely scheduler from picking it up
+                await db.run("UPDATE events SET status = 'inactive' WHERE id = ?", [id]);
+                statusMessage += ' Event marked as inactive to prevent duplicates.';
+            } else {
+                // For recurrent events, update the round-robin indexes so the next post uses the next image/caption
+                await db.run(
+                    'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
+                    [nextImageIndex, nextCaptionIndex, event.id]
+                );
+            }
 
             const { sendPost } = require('../services/scheduler');
-            // We pass the updated event object or let sendPost handle it
-            setImmediate(() => sendPost(event));
+            // Pass the updated event object with correct round-robin image/caption
+            setImmediate(() => sendPost(eventToPost));
             
-            res.json({ message: 'Post request initiated. Event marked as inactive to prevent duplicates.' });
+            res.json({ message: statusMessage });
         } catch (error) {
             console.error('Error in postNow:', error);
             res.status(500).json({ error: 'Internal server error.' });
