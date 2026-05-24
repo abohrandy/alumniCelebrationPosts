@@ -93,8 +93,8 @@ async function scheduleDailyPosts() {
     }, { timezone: "Africa/Lagos" });
 
     // ── Interval-based events (Announcements) ──
-    // Check every hour if any interval-based event should be posted
-    cron.schedule('0 * * * *', async () => {
+    // Check every minute if any interval-based event should be posted
+    cron.schedule('* * * * *', async () => {
         await processIntervalEvents();
     }, { timezone: "Africa/Lagos" });
 
@@ -106,9 +106,20 @@ async function processTodayEvents() {
     try {
         const db = await initDb();
         const now = new Date();
-        const todayStr = format(now, 'yyyy-MM-dd');
-        const currentHour = now.getHours();
-        const currentMin = now.getMinutes();
+        
+        // Get date in Lagos
+        const dateOptions = { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const dateStr = new Intl.DateTimeFormat('en-GB', dateOptions).format(now); 
+        const [d, m, y] = dateStr.split('/');
+        const todayStr = `${y}-${m}-${d}`;
+        
+        // Get time in Lagos
+        const timeOptions = { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false };
+        let currentTime = new Intl.DateTimeFormat('en-US', timeOptions).format(now);
+        if (currentTime.startsWith('24:')) currentTime = currentTime.replace('24:', '00:');
+        const [currentHourStr, currentMinStr] = currentTime.split(':');
+        const currentHour = parseInt(currentHourStr, 10);
+        const currentMin = parseInt(currentMinStr, 10);
 
         const events = await db.all(
             `SELECT * FROM events 
@@ -257,9 +268,17 @@ async function processIntervalEvents() {
     try {
         const db = await initDb();
         const now = new Date();
-        const currentHour = String(now.getHours()).padStart(2, '0');
-        const currentMin = String(now.getMinutes()).padStart(2, '0');
-        const currentTime = `${currentHour}:${currentMin}`;
+        
+        // Get current time in Lagos
+        const timeOptions = { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false };
+        let currentTime = new Intl.DateTimeFormat('en-US', timeOptions).format(now);
+        if (currentTime.startsWith('24:')) currentTime = currentTime.replace('24:', '00:');
+        
+        // Get current date in Lagos
+        const dateOptions = { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const dateStr = new Intl.DateTimeFormat('en-GB', dateOptions).format(now); 
+        const [d, m, y] = dateStr.split('/');
+        const todayDate = new Date(`${y}-${m}-${d}T00:00:00Z`);
 
         // 1. Check ALL active interval events for expiry and auto-deactivate
         const allActiveIntervals = await db.all(
@@ -301,8 +320,9 @@ async function processIntervalEvents() {
         for (const event of eventsToPost) {
             // Check if enough days have passed since creation or last post
             if (event.repeat_interval_days) {
-                const createdDate = new Date(event.created_at);
-                const daysSinceCreation = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+                const createdDateStr = event.created_at.split(' ')[0]; // Extract YYYY-MM-DD
+                const createdDate = new Date(`${createdDateStr}T00:00:00Z`);
+                const daysSinceCreation = Math.round((todayDate - createdDate) / (1000 * 60 * 60 * 24));
 
                 if (daysSinceCreation % event.repeat_interval_days === 0) {
                     console.log(`Processing interval event: ${event.title || event.id}`);
