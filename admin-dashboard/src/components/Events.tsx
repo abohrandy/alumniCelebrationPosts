@@ -267,7 +267,19 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         } catch (error: any) {
             console.error('Failed to post:', error);
             const msg = error.response?.data?.error || 'Failed to initiate post';
-            alert(msg);
+            if (msg === 'This event has already been posted today.') {
+                if (confirm('This event has already been posted today. Do you want to post it again anyway?')) {
+                    try {
+                        await axios.post(`/api/events/${id}/post-now?force=true`);
+                        alert('Post request sent forcefully! Check activity logs.');
+                        fetchEvents();
+                    } catch (err2: any) {
+                        alert(err2.response?.data?.error || 'Failed to initiate forced post');
+                    }
+                }
+            } else {
+                alert(msg);
+            }
         } finally {
             setPostingIds(prev => prev.filter(pid => pid !== id));
         }

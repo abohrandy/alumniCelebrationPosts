@@ -308,13 +308,15 @@ const eventController = {
             if (!event) return res.status(404).json({ error: 'Event not found.' });
 
             // 1. Double-Post Prevention: Check if already sent today (local time)
-            const alreadySent = await db.get(
-                "SELECT id FROM activity_logs WHERE event_id = ? AND action = 'post_sent' AND date(created_at, 'localtime') = date('now', 'localtime')",
-                [id]
-            );
+            if (req.query.force !== 'true') {
+                const alreadySent = await db.get(
+                    "SELECT id FROM activity_logs WHERE event_id = ? AND action = 'post_sent' AND date(created_at, 'localtime') = date('now', 'localtime')",
+                    [id]
+                );
 
-            if (alreadySent) {
-                return res.status(400).json({ error: 'This event has already been posted today.' });
+                if (alreadySent) {
+                    return res.status(400).json({ error: 'This event has already been posted today.' });
+                }
             }
 
             // Fetch images and captions to use the correct round-robin item
