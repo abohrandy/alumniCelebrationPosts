@@ -360,8 +360,8 @@ const eventController = {
             }
 
             const { sendPost } = require('../services/scheduler');
-            // Pass the updated event object with correct round-robin image/caption
-            setImmediate(() => sendPost(eventToPost));
+            // Pass the updated event object with correct round-robin image/caption and force override
+            setImmediate(() => sendPost(eventToPost, req.query.force === 'true'));
             
             res.json({ message: statusMessage });
         } catch (error) {
