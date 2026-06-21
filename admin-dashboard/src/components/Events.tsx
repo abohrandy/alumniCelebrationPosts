@@ -87,6 +87,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [selectedProfileId, setSelectedProfileId] = useState<string>('');
     const [viewingEvent, setViewingEvent] = useState<EventItem | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     useEffect(() => {
         fetchEvents();
@@ -171,7 +172,32 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
+        const isMultiple = eventType === 'recurrent_announcement' || eventType === 'monday_market';
+        let files = Array.from(e.target.files || []);
+        if (!isMultiple && files.length > 0) files = [files[0]];
+        if (files.length > 0) {
+            setImageFiles(files);
+            const urls = files.map(file => URL.createObjectURL(file));
+            setPreviewUrls(urls);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const isMultiple = eventType === 'recurrent_announcement' || eventType === 'monday_market';
+        let files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
+        if (!isMultiple && files.length > 0) files = [files[0]];
         if (files.length > 0) {
             setImageFiles(files);
             const urls = files.map(file => URL.createObjectURL(file));
@@ -576,11 +602,24 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <Image size={14} className="inline mr-1" />
                                     Upload designed image or video? {(eventType === 'recurrent_announcement' || eventType === 'monday_market') ? '(Select Multiple)' : ''}
                                 </label>
-                                <input type="file" accept="image/*,video/*"
-                                    multiple={eventType === 'recurrent_announcement' || eventType === 'monday_market'}
-                                    onChange={handleImageChange}
-                                    className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-medium file:cursor-pointer"
-                                    required={!editingId} />
+                                <div 
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    className={`relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg transition-colors overflow-hidden ${isDragging ? 'border-primary bg-primary/10' : 'border-slate-600 bg-slate-800/50 hover:bg-slate-800'}`}
+                                >
+                                    <input type="file" accept="image/*,video/*"
+                                        multiple={eventType === 'recurrent_announcement' || eventType === 'monday_market'}
+                                        onChange={handleImageChange}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        required={!editingId && imageFiles.length === 0} />
+                                    <div className="flex flex-col items-center justify-center text-slate-400 pointer-events-none">
+                                        <Image size={32} className="mb-2 opacity-50" />
+                                        <p className="text-sm">
+                                            {isDragging ? 'Drop files here...' : 'Drag & drop or click to browse'}
+                                        </p>
+                                    </div>
+                                </div>
 
                                 {previewUrls.length > 0 && (
                                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
