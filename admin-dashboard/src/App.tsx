@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, MessageSquare, Settings as SettingsIcon, Bell, History, UserCog, LogOut, Sun, Moon, Menu, X, ClipboardList } from 'lucide-react';
 import axios from 'axios';
 import Dashboard from './components/Dashboard';
 import Events from './components/Events';
 import WhatsAppStatus from './components/WhatsAppStatus';
 import Settings from './components/Settings';
 import ActivityLogs from './components/ActivityLogs';
+import PublishingLogs from './components/PublishingLogs';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 
@@ -95,6 +96,7 @@ function App() {
       case 'dashboard': return <Dashboard key="dashboard" onNavigate={handleTabChange} />;
       case 'events': return <Events key="events" initialShowForm={showEventForm} initialFilter={eventFilter} />;
       case 'activity': return isAdmin ? <ActivityLogs key="activity" /> : <Dashboard key="dashboard-fallback" onNavigate={handleTabChange} />;
+      case 'publishing-logs': return isAdmin ? <PublishingLogs key="publishing-logs" /> : <Dashboard key="dashboard-fallback4" onNavigate={handleTabChange} />;
       case 'whatsapp': return <WhatsAppStatus key="whatsapp" />;
       case 'settings': return isAdmin ? <Settings key="settings" /> : <Dashboard key="dashboard-fallback2" onNavigate={handleTabChange} />;
       case 'users': return isAdmin ? <UserManagement key="users" /> : <Dashboard key="dashboard-fallback3" onNavigate={handleTabChange} />;
@@ -107,6 +109,7 @@ function App() {
       dashboard: 'Dashboard',
       events: 'Events',
       activity: 'Activity Logs',
+      'publishing-logs': 'Publishing Logs',
       whatsapp: 'WhatsApp Status',
       settings: 'Settings',
       users: 'User Management'
@@ -164,6 +167,11 @@ function App() {
           {isAdmin && (
             <button onClick={() => handleTabChange('activity')} className={`w-full nav-link ${activeTab === 'activity' ? 'active' : ''}`}>
               <History size={20} /> Activity Logs
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => handleTabChange('publishing-logs')} className={`w-full nav-link ${activeTab === 'publishing-logs' ? 'active' : ''}`}>
+              <ClipboardList size={20} /> Publishing Logs
             </button>
           )}
           <button onClick={() => handleTabChange('whatsapp')} className={`w-full nav-link ${activeTab === 'whatsapp' ? 'active' : ''}`}>

@@ -395,4 +395,8 @@ router.get('/logs', requireAdmin, async (req, res) => {
     }
 });
 
+// ── Publishing Logs Route (admin only) ──
+const publishingLogsController = require('../controllers/publishingLogsController');
+router.get('/publishing-logs', requireAdmin, publishingLogsController.list);
+
 module.exports = router;

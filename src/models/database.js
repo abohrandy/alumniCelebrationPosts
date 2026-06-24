@@ -491,6 +491,18 @@ async function initDb() {
         }
     }
 
+    // ── Publishing Logs table ──
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS publishing_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+            platform TEXT NOT NULL CHECK(platform IN ('whatsapp', 'facebook_feed', 'facebook_reel', 'instagram_feed', 'instagram_reel')),
+            status TEXT NOT NULL CHECK(status IN ('success', 'failed')),
+            response TEXT,
+            published_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     // Seed admin user from env var if set
     const adminEmail = process.env.ADMIN_EMAIL;
     if (adminEmail) {
@@ -589,4 +601,17 @@ async function logActivity(userId, action, eventId, description, details = null)
     }
 }
 
-module.exports = { initDb, getDb, logActivity };
+async function logPublishing(eventId, platform, status, response = null) {
+    try {
+        const db = await getDb();
+        const responseStr = response && typeof response === 'object' ? JSON.stringify(response) : response;
+        await db.run(
+            'INSERT INTO publishing_logs (event_id, platform, status, response) VALUES (?, ?, ?, ?)',
+            [eventId || null, platform, status, responseStr || null]
+        );
+    } catch (e) {
+        console.error('Failed to log publishing:', e);
+    }
+}
+
+module.exports = { initDb, getDb, logActivity, logPublishing };
