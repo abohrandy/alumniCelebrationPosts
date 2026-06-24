@@ -64,6 +64,44 @@ async function reactivateYearlyEvents() {
     }
 }
 
+// ── Cleanup Old Video Reels (Older than 7 days) ──
+async function cleanupOldReels() {
+    try {
+        const db = await initDb();
+        const events = await db.all("SELECT id, generated_reel_path FROM events WHERE generated_reel_path IS NOT NULL");
+        const fs = require('fs');
+        const now = new Date();
+        let deletedCount = 0;
+
+        for (const event of events) {
+            try {
+                const fullPath = path.resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                if (fs.existsSync(fullPath)) {
+                    const stats = fs.statSync(fullPath);
+                    const ageInDays = (now.getTime() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
+                    if (ageInDays > 7) {
+                        fs.unlinkSync(fullPath);
+                        await db.run("UPDATE events SET generated_reel_path = NULL WHERE id = ?", [event.id]);
+                        deletedCount++;
+                    }
+                } else {
+                    // Path exists in DB but file is missing on disk, clean up DB reference
+                    await db.run("UPDATE events SET generated_reel_path = NULL WHERE id = ?", [event.id]);
+                }
+            } catch (err) {
+                console.error(`Error deleting old reel for event ${event.id}:`, err.message);
+            }
+        }
+
+        if (deletedCount > 0) {
+            console.log(`Cleaned up ${deletedCount} reels older than 7 days.`);
+            await logActivity(null, 'cleanup_reels', null, `Deleted ${deletedCount} reels older than 7 days.`);
+        }
+    } catch (error) {
+        console.error('Error cleaning up old reels:', error);
+    }
+}
+
 async function scheduleDailyPosts() {
     // ── Daily Cleanup ──
     // Every day at midnight
@@ -71,6 +109,7 @@ async function scheduleDailyPosts() {
         console.log('Running daily cleanup and reactivation...');
         await reactivateYearlyEvents();
         await cleanupOneDayEvents();
+        await cleanupOldReels();
     }, { timezone: "Africa/Lagos" });
 
     // Run birthday check every minute to handle staggered times accurately
@@ -83,6 +122,7 @@ async function scheduleDailyPosts() {
     console.log('Running initial post scheduler check on startup...');
     await reactivateYearlyEvents();
     await cleanupOneDayEvents();
+    await cleanupOldReels();
     await processTodayEvents();
 
     // ── Monday Market ──
