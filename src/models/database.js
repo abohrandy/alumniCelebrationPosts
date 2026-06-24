@@ -83,8 +83,12 @@ async function initDb() {
                 current_caption_index INTEGER DEFAULT 0,
                 created_by INTEGER REFERENCES users(id),
                 status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
-                expiry_date TEXT,
                 repeat_annually INTEGER DEFAULT 0,
+                publish_whatsapp INTEGER DEFAULT 1,
+                publish_facebook_feed INTEGER DEFAULT 0,
+                publish_facebook_reel INTEGER DEFAULT 0,
+                publish_instagram_feed INTEGER DEFAULT 0,
+                publish_instagram_reel INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -212,6 +216,21 @@ async function initDb() {
         if (!columnNames.includes('repeat_annually')) {
             await db.exec("ALTER TABLE events ADD COLUMN repeat_annually INTEGER DEFAULT 0");
         }
+        if (!columnNames.includes('publish_whatsapp')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_whatsapp INTEGER DEFAULT 1");
+        }
+        if (!columnNames.includes('publish_facebook_feed')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_facebook_feed INTEGER DEFAULT 0");
+        }
+        if (!columnNames.includes('publish_facebook_reel')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_facebook_reel INTEGER DEFAULT 0");
+        }
+        if (!columnNames.includes('publish_instagram_feed')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_instagram_feed INTEGER DEFAULT 0");
+        }
+        if (!columnNames.includes('publish_instagram_reel')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_instagram_reel INTEGER DEFAULT 0");
+        }
         // Remove first_name and second_name if full_name exists and they are no longer needed
         if (columnNames.includes('first_name') && columnNames.includes('full_name')) {
             // SQLite does not support dropping columns directly without recreating the table.
@@ -259,6 +278,11 @@ async function initDb() {
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
                     expiry_date TEXT,
                     repeat_annually INTEGER DEFAULT 0,
+                    publish_whatsapp INTEGER DEFAULT 1,
+                    publish_facebook_feed INTEGER DEFAULT 0,
+                    publish_facebook_reel INTEGER DEFAULT 0,
+                    publish_instagram_feed INTEGER DEFAULT 0,
+                    publish_instagram_reel INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -270,13 +294,19 @@ async function initDb() {
                 : "full_name";
             
             const repeatAnnuallySelect = columnNames.includes('repeat_annually') ? 'repeat_annually' : '0';
+            const pubWhatsappSelect = columnNames.includes('publish_whatsapp') ? 'publish_whatsapp' : '1';
+            const pubFbFeedSelect = columnNames.includes('publish_facebook_feed') ? 'publish_facebook_feed' : '0';
+            const pubFbReelSelect = columnNames.includes('publish_facebook_reel') ? 'publish_facebook_reel' : '0';
+            const pubIgFeedSelect = columnNames.includes('publish_instagram_feed') ? 'publish_instagram_feed' : '0';
+            const pubIgReelSelect = columnNames.includes('publish_instagram_reel') ? 'publish_instagram_reel' : '0';
 
             await db.exec(`
                 INSERT INTO events_new (
                     id, full_name, phone_number,
                     event_type, event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, repeat_annually, created_at
+                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, repeat_annually, created_at,
+                    publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel
                 )
                 SELECT
                     id,
@@ -290,7 +320,8 @@ async function initDb() {
                     END,
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
-                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, ${repeatAnnuallySelect}, created_at
+                    post_time, current_image_index, current_caption_index, created_by, status, expiry_date, ${repeatAnnuallySelect}, created_at,
+                    ${pubWhatsappSelect}, ${pubFbFeedSelect}, ${pubFbReelSelect}, ${pubIgFeedSelect}, ${pubIgReelSelect}
                 FROM events
             `);
 

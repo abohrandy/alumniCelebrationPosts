@@ -22,6 +22,11 @@ interface EventItem {
     whatsapp_profile_id: number | null;
     images?: Array<{ image_path: string; sort_order: number }>;
     captions?: Array<{ caption_text: string; sort_order: number }>;
+    publish_whatsapp?: number;
+    publish_facebook_feed?: number;
+    publish_facebook_reel?: number;
+    publish_instagram_feed?: number;
+    publish_instagram_reel?: number;
 }
 
 interface WhatsAppProfile {
@@ -89,6 +94,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [viewingEvent, setViewingEvent] = useState<EventItem | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
+    // Publishing Destinations State
+    const [publishWhatsapp, setPublishWhatsapp] = useState(true);
+    const [publishFacebookFeed, setPublishFacebookFeed] = useState(false);
+    const [publishFacebookReel, setPublishFacebookReel] = useState(false);
+    const [publishInstagramFeed, setPublishInstagramFeed] = useState(false);
+    const [publishInstagramReel, setPublishInstagramReel] = useState(false);
+
     useEffect(() => {
         fetchEvents();
         fetchProfiles();
@@ -134,6 +146,11 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setImageFiles([]);
         setPreviewUrls([]);
         setEditingId(null);
+        setPublishWhatsapp(true);
+        setPublishFacebookFeed(false);
+        setPublishFacebookReel(false);
+        setPublishInstagramFeed(false);
+        setPublishInstagramReel(false);
         if (profiles.length > 0) {
             const defaultProfile = profiles.find(p => (p as any).is_default) || profiles[0];
             setSelectedProfileId(String(defaultProfile.id));
@@ -161,6 +178,11 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setExpiryDate(event.expiry_date || '');
         setPreviewUrls(event.design_image_path ? [`/${event.design_image_path}`] : []);
         setSelectedProfileId(event.whatsapp_profile_id ? String(event.whatsapp_profile_id) : '');
+        setPublishWhatsapp(event.publish_whatsapp !== 0);
+        setPublishFacebookFeed(event.publish_facebook_feed === 1);
+        setPublishFacebookReel(event.publish_facebook_reel === 1);
+        setPublishInstagramFeed(event.publish_instagram_feed === 1);
+        setPublishInstagramReel(event.publish_instagram_reel === 1);
         
         if (event.captions && (event.event_type === 'recurrent_announcement' || event.event_type === 'monday_market')) {
             setCaptions(event.captions.map((c: any) => c.caption_text));
@@ -247,6 +269,12 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                     formData.append('design_image', file);
                 });
             }
+
+            formData.append('publish_whatsapp', publishWhatsapp ? '1' : '0');
+            formData.append('publish_facebook_feed', publishFacebookFeed ? '1' : '0');
+            formData.append('publish_facebook_reel', publishFacebookReel ? '1' : '0');
+            formData.append('publish_instagram_feed', publishInstagramFeed ? '1' : '0');
+            formData.append('publish_instagram_reel', publishInstagramReel ? '1' : '0');
 
             if (editingId) {
                 await axios.put(`/api/events/${editingId}`, formData);
@@ -655,6 +683,62 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                         ⚠️ No WhatsApp accounts found. Please add one in the WhatsApp Status tab.
                                     </p>
                                 )}
+                            </div>
+
+                            {/* Publishing Destinations */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                                    Publishing Destinations
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg border border-slate-700 bg-slate-800/20">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishWhatsapp} 
+                                            onChange={(e) => setPublishWhatsapp(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        WhatsApp Group
+                                    </label>
+                                    <div className="sm:col-span-2 border-t border-slate-700/50 my-1"></div>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishFacebookFeed} 
+                                            onChange={(e) => setPublishFacebookFeed(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        Facebook Feed
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishFacebookReel} 
+                                            onChange={(e) => setPublishFacebookReel(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        Facebook Reel
+                                    </label>
+                                    <div className="sm:col-span-2 border-t border-slate-700/50 my-1"></div>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishInstagramFeed} 
+                                            onChange={(e) => setPublishInstagramFeed(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        Instagram Feed
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishInstagramReel} 
+                                            onChange={(e) => setPublishInstagramReel(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        Instagram Reel
+                                    </label>
+                                </div>
                             </div>
 
                             {/* Submit */}

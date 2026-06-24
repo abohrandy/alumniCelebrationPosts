@@ -22,6 +22,18 @@ const eventController = {
             // Backward compatibility
             const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
 
+            const parseBoolField = (val, defaultVal = 0) => {
+                if (val === undefined || val === null) return defaultVal;
+                if (val === true || val === 'true' || val === 1 || val === '1' || val === 'on') return 1;
+                return 0;
+            };
+
+            const publishWhatsapp = parseBoolField(req.body.publish_whatsapp, 1);
+            const publishFacebookFeed = parseBoolField(req.body.publish_facebook_feed, 0);
+            const publishFacebookReel = parseBoolField(req.body.publish_facebook_reel, 0);
+            const publishInstagramFeed = parseBoolField(req.body.publish_instagram_feed, 0);
+            const publishInstagramReel = parseBoolField(req.body.publish_instagram_reel, 0);
+
             if (!req.files || (!req.files.design_image && !req.files['design_image[]'])) {
                 return res.status(400).json({ error: 'No image uploaded.' });
             }
@@ -64,10 +76,11 @@ const eventController = {
             const db = await initDb();
             const userId = req.user ? req.user.id : null;
 
-            const result = await db.run(
+             const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id,
+                 publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
@@ -84,7 +97,12 @@ const eventController = {
                     expiry_date || null,
                     repeat_annually ? 1 : 0,
                     userId,
-                    whatsapp_profile_id || null
+                    whatsapp_profile_id || null,
+                    publishWhatsapp,
+                    publishFacebookFeed,
+                    publishFacebookReel,
+                    publishInstagramFeed,
+                    publishInstagramReel
                 ]
             );
 
@@ -145,6 +163,18 @@ const eventController = {
 
             const fullName = full_name || `${req.body.first_name || ''} ${req.body.second_name || ''}`.trim();
 
+            const parseBoolField = (val, defaultVal = 0) => {
+                if (val === undefined || val === null) return defaultVal;
+                if (val === true || val === 'true' || val === 1 || val === '1' || val === 'on') return 1;
+                return 0;
+            };
+
+            const publishWhatsapp = parseBoolField(req.body.publish_whatsapp, 1);
+            const publishFacebookFeed = parseBoolField(req.body.publish_facebook_feed, 0);
+            const publishFacebookReel = parseBoolField(req.body.publish_facebook_reel, 0);
+            const publishInstagramFeed = parseBoolField(req.body.publish_instagram_feed, 0);
+            const publishInstagramReel = parseBoolField(req.body.publish_instagram_reel, 0);
+
             const db = await initDb();
 
             let updateQuery = `
@@ -152,7 +182,7 @@ const eventController = {
                 SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
                     schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?, repeat_annually = ?,
-                    whatsapp_profile_id = ?
+                    whatsapp_profile_id = ?, publish_whatsapp = ?, publish_facebook_feed = ?, publish_facebook_reel = ?, publish_instagram_feed = ?, publish_instagram_reel = ?
             `;
             let queryParams = [
                 title || null,
@@ -167,7 +197,12 @@ const eventController = {
                 post_time || '06:00',
                 expiry_date || null,
                 repeat_annually ? 1 : 0,
-                whatsapp_profile_id || null
+                whatsapp_profile_id || null,
+                publishWhatsapp,
+                publishFacebookFeed,
+                publishFacebookReel,
+                publishInstagramFeed,
+                publishInstagramReel
             ];
 
             if (req.files && (req.files.design_image || req.files['design_image[]'])) {
