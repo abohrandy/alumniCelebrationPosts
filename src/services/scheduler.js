@@ -522,6 +522,81 @@ async function sendPost(event, _isRetry = false) {
             }
         }
 
+        // --- Facebook Reel Posting ---
+        if (event.publish_facebook_reel === 1) {
+            try {
+                console.log('Facebook Reel posting enabled. Fetching credentials...');
+                const pageId = settings?.facebook_page_id;
+                const pageToken = settings?.facebook_access_token;
+                
+                if (!pageId || !pageToken) {
+                    throw new Error('Facebook Page ID or Access Token is missing from Settings.');
+                }
+                
+                if (!event.generated_reel_path) {
+                    throw new Error('No generated reel video path found for this event.');
+                }
+                
+                const videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                if (!require('fs').existsSync(videoPath)) {
+                    throw new Error(`Generated reel file does not exist at path: ${videoPath}`);
+                }
+                
+                const axios = require('axios');
+                
+                // 1. Initialize upload session
+                console.log('Initializing Facebook Reel upload session...');
+                const initRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/video_reels`, null, {
+                    params: {
+                        upload_phase: 'start',
+                        access_token: pageToken
+                    }
+                });
+                
+                const videoId = initRes.data.video_id;
+                const uploadUrl = initRes.data.upload_url;
+                if (!videoId || !uploadUrl) {
+                    throw new Error('Failed to retrieve video_id or upload_url from Facebook Reel initialization.');
+                }
+                
+                // 2. Upload video binary
+                console.log(`Uploading video binary to Facebook Reel upload session: ${videoId}...`);
+                const fs = require('fs');
+                const fileStream = fs.createReadStream(videoPath);
+                const fileSize = fs.statSync(videoPath).size;
+                
+                await axios.post(uploadUrl, fileStream, {
+                    headers: {
+                        'Authorization': `OAuth ${pageToken}`,
+                        'offset': '0',
+                        'file_size': fileSize,
+                        'Content-Type': 'application/octet-stream'
+                    }
+                });
+                
+                // 3. Finalize and publish
+                console.log(`Finalizing and publishing Facebook Reel ${videoId}...`);
+                const finishRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/video_reels`, null, {
+                    params: {
+                        upload_phase: 'finish',
+                        video_id: videoId,
+                        video_state: 'PUBLISHED',
+                        description: caption,
+                        access_token: pageToken
+                    }
+                });
+                
+                console.log(`Facebook Reel post successful! Response:`, finishRes.data);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'facebook_reel', 'success', JSON.stringify(finishRes.data));
+            } catch (fbReelErr) {
+                console.error('Facebook Reel posting failed:', fbReelErr.response?.data || fbReelErr.message);
+                const { logPublishing } = require('../models/database');
+                const errMsg = fbReelErr.response?.data ? JSON.stringify(fbReelErr.response.data) : fbReelErr.message;
+                await logPublishing(event.id, 'facebook_reel', 'failed', errMsg);
+            }
+        }
+
         // --- Instagram Feed Posting ---
         if (event.publish_instagram_feed === 1) {
             try {
