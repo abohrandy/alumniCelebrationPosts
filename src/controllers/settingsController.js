@@ -20,6 +20,9 @@ exports.updateSettings = async (req, res) => {
         one_day_event_template,
         instagram_business_id,
         instagram_access_token,
+        facebook_page_id,
+        facebook_page_name,
+        facebook_access_token,
         imgbb_api_key,
         instagram_enabled
     } = req.body;
@@ -35,6 +38,9 @@ exports.updateSettings = async (req, res) => {
                 one_day_event_template = ?,
                 instagram_business_id = ?,
                 instagram_access_token = ?,
+                facebook_page_id = ?,
+                facebook_page_name = ?,
+                facebook_access_token = ?,
                 imgbb_api_key = ?,
                 instagram_enabled = ?
             WHERE id = 1
@@ -48,6 +54,9 @@ exports.updateSettings = async (req, res) => {
             one_day_event_template,
             instagram_business_id || '',
             instagram_access_token || '',
+            facebook_page_id || '',
+            facebook_page_name || '',
+            facebook_access_token || '',
             imgbb_api_key || '',
             instagram_enabled ? 1 : 0
         ]);
@@ -55,6 +64,8 @@ exports.updateSettings = async (req, res) => {
             whatsapp_group_id,
             whatsapp_group_id_2,
             instagram_business_id,
+            facebook_page_id,
+            facebook_page_name,
             instagram_enabled
         });
         res.json({ message: 'Settings updated successfully' });
