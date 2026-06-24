@@ -89,6 +89,7 @@ async function initDb() {
                 publish_facebook_reel INTEGER DEFAULT 0,
                 publish_instagram_feed INTEGER DEFAULT 0,
                 publish_instagram_reel INTEGER DEFAULT 0,
+                generated_reel_path TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -231,6 +232,9 @@ async function initDb() {
         if (!columnNames.includes('publish_instagram_reel')) {
             await db.exec("ALTER TABLE events ADD COLUMN publish_instagram_reel INTEGER DEFAULT 0");
         }
+        if (!columnNames.includes('generated_reel_path')) {
+            await db.exec("ALTER TABLE events ADD COLUMN generated_reel_path TEXT");
+        }
         // Remove first_name and second_name if full_name exists and they are no longer needed
         if (columnNames.includes('first_name') && columnNames.includes('full_name')) {
             // SQLite does not support dropping columns directly without recreating the table.
@@ -283,6 +287,7 @@ async function initDb() {
                     publish_facebook_reel INTEGER DEFAULT 0,
                     publish_instagram_feed INTEGER DEFAULT 0,
                     publish_instagram_reel INTEGER DEFAULT 0,
+                    generated_reel_path TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -299,6 +304,7 @@ async function initDb() {
             const pubFbReelSelect = columnNames.includes('publish_facebook_reel') ? 'publish_facebook_reel' : '0';
             const pubIgFeedSelect = columnNames.includes('publish_instagram_feed') ? 'publish_instagram_feed' : '0';
             const pubIgReelSelect = columnNames.includes('publish_instagram_reel') ? 'publish_instagram_reel' : '0';
+            const genReelSelect = columnNames.includes('generated_reel_path') ? 'generated_reel_path' : 'NULL';
 
             await db.exec(`
                 INSERT INTO events_new (
@@ -306,7 +312,7 @@ async function initDb() {
                     event_type, event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
                     post_time, current_image_index, current_caption_index, created_by, status, expiry_date, repeat_annually, created_at,
-                    publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel
+                    publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel, generated_reel_path
                 )
                 SELECT
                     id,
@@ -321,7 +327,7 @@ async function initDb() {
                     event_date, design_image_path, caption,
                     message_template, schedule_type, repeat_interval_days,
                     post_time, current_image_index, current_caption_index, created_by, status, expiry_date, ${repeatAnnuallySelect}, created_at,
-                    ${pubWhatsappSelect}, ${pubFbFeedSelect}, ${pubFbReelSelect}, ${pubIgFeedSelect}, ${pubIgReelSelect}
+                    ${pubWhatsappSelect}, ${pubFbFeedSelect}, ${pubFbReelSelect}, ${pubIgFeedSelect}, ${pubIgReelSelect}, ${genReelSelect}
                 FROM events
             `);
 

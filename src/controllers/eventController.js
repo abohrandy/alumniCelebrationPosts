@@ -142,6 +142,18 @@ const eventController = {
             await logActivity(userId, 'create_event', result.lastID, `Created ${event_type}: ${displayName}`, {
                 event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually, whatsapp_profile_id
             });
+
+            // Trigger video reel generation if Facebook or Instagram Reel is checked
+            if (publishFacebookReel === 1 || publishInstagramReel === 1) {
+                try {
+                    const { generateReel } = require('../services/videoGenerator');
+                    const generatedReelPath = await generateReel(dbPaths[0]);
+                    await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [generatedReelPath, eventId]);
+                } catch (reelErr) {
+                    console.error('Failed to generate video reel on event creation:', reelErr.message);
+                }
+            }
+
             res.status(201).json({ message: 'Event created successfully', id: result.lastID });
         } catch (error) {
             console.error('Error creating event:', error);
@@ -276,6 +288,39 @@ const eventController = {
             await db.run(updateQuery, queryParams);
             emitStats({ action: 'update' });
 
+            // Post-update: check if we need to generate or delete the video reel
+            const updatedEvent = await db.get('SELECT * FROM events WHERE id = ?', [id]);
+            const shouldHaveReel = (publishFacebookReel === 1 || publishInstagramReel === 1);
+
+            if (shouldHaveReel) {
+                const imageChanged = req.files && (req.files.design_image || req.files['design_image[]']);
+                const noReelExists = !updatedEvent.generated_reel_path;
+
+                if (imageChanged || noReelExists) {
+                    try {
+                        if (updatedEvent.generated_reel_path) {
+                            const oldReelAbs = path.resolve(process.env.DATA_DIR || '', updatedEvent.generated_reel_path);
+                            if (fs.existsSync(oldReelAbs)) fs.unlinkSync(oldReelAbs);
+                        }
+                        const { generateReel } = require('../services/videoGenerator');
+                        const nextReelPath = await generateReel(updatedEvent.design_image_path);
+                        await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [nextReelPath, id]);
+                    } catch (reelErr) {
+                        console.error('Failed to regenerate video reel on update:', reelErr.message);
+                    }
+                }
+            } else {
+                if (updatedEvent.generated_reel_path) {
+                    try {
+                        const oldReelAbs = path.resolve(process.env.DATA_DIR || '', updatedEvent.generated_reel_path);
+                        if (fs.existsSync(oldReelAbs)) fs.unlinkSync(oldReelAbs);
+                        await db.run('UPDATE events SET generated_reel_path = NULL WHERE id = ?', [id]);
+                    } catch (cleanupErr) {
+                        console.error('Failed to clean up old reel:', cleanupErr.message);
+                    }
+                }
+            }
+
             const userId = req.user ? req.user.id : null;
             await logActivity(userId, 'edit_event', parseInt(id), `Updated event ID ${id}`, {
                 event_type, title, full_name: fullName, phone_number, event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually, whatsapp_profile_id
@@ -313,6 +358,18 @@ const eventController = {
         try {
             const { id } = req.params;
             const db = await initDb();
+            
+            // Clean up the generated reel file if it exists
+            const event = await db.get("SELECT generated_reel_path FROM events WHERE id = ?", [id]);
+            if (event && event.generated_reel_path) {
+                try {
+                    const reelAbs = path.resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                    if (fs.existsSync(reelAbs)) fs.unlinkSync(reelAbs);
+                } catch (cleanupErr) {
+                    console.error('Failed to delete reel file on event removal:', cleanupErr.message);
+                }
+            }
+
             await db.run("DELETE FROM events WHERE id = ?", [id]);
             emitStats({ action: 'delete' });
             res.json({ message: 'Event deleted.' });

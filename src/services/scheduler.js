@@ -425,51 +425,100 @@ async function sendPost(event, _isRetry = false) {
 
         const displayName = event.full_name || event.title || event.event_type;
 
-        // --- Multi-Account Routing & Group Selection ---
-        // 1. Determine which WhatsApp account to use
-        const profileId = event.whatsapp_profile_id;
-        const instance = waClient.getInstance(profileId);
-        
-        if (!instance || instance.status !== 'CONNECTED') {
-            const errorMsg = `Account ${instance ? instance.name : (profileId || 'Default')} is not connected. Skipping post.`;
-            console.error(errorMsg);
-            emitLog({ type: 'error', message: errorMsg, timestamp: new Date().toISOString() });
-            await logActivity(null, 'post_failed', event.id, errorMsg);
-            return;
-        }
-
-        // 2. Determine target groups (Fetch from profile, fall back to global settings)
-        const dbProfile = await db.get('SELECT group_id, group_id_2 FROM whatsapp_profiles WHERE id = ?', [instance.id]);
-        
-        let targetGroupId = groupId;
-        let targetGroupId2 = groupId2;
-
-        // If profile exists, its settings completely override global ones (even if they are empty strings)
-        if (dbProfile) {
-            targetGroupId = dbProfile.group_id;
-            targetGroupId2 = dbProfile.group_id_2;
-            
-            // Fallback for primary group only if the profile completely lacks one but global exists
-            if (!targetGroupId && groupId) targetGroupId = groupId; 
-        }
-
-        console.log(`Sending post for ${displayName} via account [${instance.name}]`);
-
-        // Send to primary group
-        if (targetGroupId) {
-            console.log(`Posting to primary group: ${targetGroupId}`);
-            await instance.sendImageWithCaption(targetGroupId, imagePath, caption);
-        } else {
-            console.warn('No primary group ID found for this post.');
-        }
-
-        // Send to secondary group if configured (skip ONLY for Monday Market)
-        if (targetGroupId2 && event.event_type !== 'monday_market') {
+        // --- WhatsApp Posting ---
+        if (event.publish_whatsapp !== 0) {
             try {
-                await instance.sendImageWithCaption(targetGroupId2, imagePath, caption);
-                console.log(`Also sent to secondary group: ${targetGroupId2}`);
-            } catch (err2) {
-                console.error(`Failed to send to secondary group ${targetGroupId2}:`, err2.message);
+                const profileId = event.whatsapp_profile_id;
+                const instance = waClient.getInstance(profileId);
+                const { logPublishing } = require('../models/database');
+                
+                if (!instance || instance.status !== 'CONNECTED') {
+                    const errorMsg = `Account ${instance ? instance.name : (profileId || 'Default')} is not connected. Skipping WhatsApp post.`;
+                    console.error(errorMsg);
+                    emitLog({ type: 'error', message: errorMsg, timestamp: new Date().toISOString() });
+                    await logActivity(null, 'post_failed', event.id, errorMsg);
+                    await logPublishing(event.id, 'whatsapp', 'failed', errorMsg);
+                } else {
+                    const dbProfile = await db.get('SELECT group_id, group_id_2 FROM whatsapp_profiles WHERE id = ?', [instance.id]);
+                    
+                    let targetGroupId = groupId;
+                    let targetGroupId2 = groupId2;
+
+                    if (dbProfile) {
+                        targetGroupId = dbProfile.group_id;
+                        targetGroupId2 = dbProfile.group_id_2;
+                        if (!targetGroupId && groupId) targetGroupId = groupId; 
+                    }
+
+                    console.log(`Sending post for ${displayName} via account [${instance.name}]`);
+
+                    if (targetGroupId) {
+                        console.log(`Posting to primary group: ${targetGroupId}`);
+                        await instance.sendImageWithCaption(targetGroupId, imagePath, caption);
+                    } else {
+                        console.warn('No primary group ID found for this post.');
+                    }
+
+                    if (targetGroupId2 && event.event_type !== 'monday_market') {
+                        try {
+                            await instance.sendImageWithCaption(targetGroupId2, imagePath, caption);
+                            console.log(`Also sent to secondary group: ${targetGroupId2}`);
+                        } catch (err2) {
+                            console.error(`Failed to send to secondary group ${targetGroupId2}:`, err2.message);
+                        }
+                    }
+
+                    const logMsg = `Post sent for ${displayName} (${event.event_type}) via ${instance.name}`;
+                    console.log(logMsg);
+                    emitLog({ type: 'success', message: logMsg, timestamp: new Date().toISOString() });
+                    await logActivity(null, 'post_sent', event.id, logMsg, {
+                        event_type: event.event_type,
+                        display_name: displayName,
+                        whatsapp_account: instance.name,
+                        whatsapp_primary: targetGroupId,
+                        whatsapp_secondary: groupId2 || null,
+                        caption: caption
+                    });
+                    
+                    await logPublishing(event.id, 'whatsapp', 'success', `Sent to primary group: ${targetGroupId}${targetGroupId2 ? ' & secondary group' : ''}`);
+                }
+            } catch (waErr) {
+                console.error('WhatsApp sending failed:', waErr.message);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'whatsapp', 'failed', waErr.message);
+            }
+        }
+
+        // --- Facebook Feed Posting ---
+        if (event.publish_facebook_feed === 1) {
+            try {
+                console.log('Facebook Feed posting enabled. Fetching credentials...');
+                const pageId = settings?.facebook_page_id;
+                const pageToken = settings?.facebook_access_token;
+                
+                if (!pageId || !pageToken) {
+                    throw new Error('Facebook Page ID or Access Token is missing from Settings.');
+                }
+                
+                const axios = require('axios');
+                const FormData = require('form-data');
+                const form = new FormData();
+                form.append('source', require('fs').createReadStream(imagePath));
+                form.append('message', caption);
+                form.append('access_token', pageToken);
+                
+                const fbRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/photos`, form, {
+                    headers: form.getHeaders()
+                });
+                
+                console.log(`Facebook Feed post successful! Post ID: ${fbRes.data.post_id || fbRes.data.id}`);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'facebook_feed', 'success', JSON.stringify(fbRes.data));
+            } catch (fbErr) {
+                console.error('Facebook Feed posting failed:', fbErr.response?.data || fbErr.message);
+                const { logPublishing } = require('../models/database');
+                const errMsg = fbErr.response?.data ? JSON.stringify(fbErr.response.data) : fbErr.message;
+                await logPublishing(event.id, 'facebook_feed', 'failed', errMsg);
             }
         }
 

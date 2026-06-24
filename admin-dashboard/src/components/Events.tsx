@@ -100,6 +100,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [publishFacebookReel, setPublishFacebookReel] = useState(false);
     const [publishInstagramFeed, setPublishInstagramFeed] = useState(false);
     const [publishInstagramReel, setPublishInstagramReel] = useState(false);
+    const [generatedReelPath, setGeneratedReelPath] = useState<string | null>(null);
 
     useEffect(() => {
         fetchEvents();
@@ -151,6 +152,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPublishFacebookReel(false);
         setPublishInstagramFeed(false);
         setPublishInstagramReel(false);
+        setGeneratedReelPath(null);
         if (profiles.length > 0) {
             const defaultProfile = profiles.find(p => (p as any).is_default) || profiles[0];
             setSelectedProfileId(String(defaultProfile.id));
@@ -183,6 +185,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPublishFacebookReel(event.publish_facebook_reel === 1);
         setPublishInstagramFeed(event.publish_instagram_feed === 1);
         setPublishInstagramReel(event.publish_instagram_reel === 1);
+        setGeneratedReelPath(event.generated_reel_path || null);
         
         if (event.captions && (event.event_type === 'recurrent_announcement' || event.event_type === 'monday_market')) {
             setCaptions(event.captions.map((c: any) => c.caption_text));
@@ -660,6 +663,22 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                                 )}
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+
+                                {/* Generated Reel Preview */}
+                                {generatedReelPath && (
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                                            Auto-Generated Video Reel
+                                        </label>
+                                        <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-2 max-w-xs">
+                                            <video 
+                                                src={`/${generatedReelPath}`} 
+                                                controls 
+                                                className="w-full rounded-lg aspect-[9/16] object-cover max-h-80"
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </div>
