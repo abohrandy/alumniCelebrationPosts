@@ -631,6 +631,108 @@ async function sendPost(event, _isRetry = false) {
             }
         }
 
+        // --- Instagram Reel Posting ---
+        if (event.publish_instagram_reel === 1) {
+            try {
+                console.log('Instagram Reel posting enabled. Fetching credentials...');
+                const businessId = settings?.instagram_business_id;
+                const accessToken = settings?.instagram_access_token;
+                
+                if (!businessId || !accessToken) {
+                    throw new Error('Instagram Business Account ID or Access Token is missing from Settings.');
+                }
+                
+                if (!event.generated_reel_path) {
+                    throw new Error('No generated reel video path found for this event.');
+                }
+                
+                const videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                if (!require('fs').existsSync(videoPath)) {
+                    throw new Error(`Generated reel file does not exist at path: ${videoPath}`);
+                }
+                
+                // 1. Upload video to tmpfiles.org to get a public URL
+                console.log('Uploading Reel video to tmpfiles.org for temporary public URL...');
+                const FormData = require('form-data');
+                const form = new FormData();
+                form.append('file', require('fs').createReadStream(videoPath));
+                
+                const axios = require('axios');
+                const uploadRes = await axios.post('https://tmpfiles.org/api/v1/upload', form, {
+                    headers: form.getHeaders(),
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
+                });
+                
+                if (!uploadRes.data || !uploadRes.data.data || !uploadRes.data.data.url) {
+                    throw new Error('Failed to upload video to tmpfiles.org: ' + JSON.stringify(uploadRes.data));
+                }
+                
+                const viewUrl = uploadRes.data.data.url;
+                const publicVideoUrl = viewUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+                console.log(`Video uploaded to tmpfiles.org successfully! Direct URL: ${publicVideoUrl}`);
+                
+                // 2. Create IG media container for Reels
+                console.log('Creating Instagram Reel media container...');
+                const containerRes = await axios.post(`https://graph.facebook.com/v20.0/${businessId}/media`, null, {
+                    params: {
+                        media_type: 'REELS',
+                        video_url: publicVideoUrl,
+                        caption: caption,
+                        access_token: accessToken
+                    }
+                });
+                
+                const creationId = containerRes.data.id;
+                if (!creationId) {
+                    throw new Error('Failed to retrieve creation_id from Instagram media container initialization.');
+                }
+                
+                // 3. Poll container status until FINISHED
+                console.log(`Instagram Reel container created: ${creationId}. Polling status...`);
+                let status = 'IN_PROGRESS';
+                let attempts = 0;
+                while (status === 'IN_PROGRESS' || status === 'SUBMITTED') {
+                    if (attempts > 30) {
+                        throw new Error('Timeout waiting for Instagram Reel container to finish processing.');
+                    }
+                    console.log(`Polling attempt ${attempts + 1}: current status is ${status}. Waiting 5 seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    const statusRes = await axios.get(`https://graph.facebook.com/v20.0/${creationId}`, {
+                        params: {
+                            fields: 'status_code',
+                            access_token: accessToken
+                        }
+                    });
+                    status = statusRes.data.status_code;
+                    attempts++;
+                }
+                
+                if (status !== 'FINISHED') {
+                    throw new Error(`Instagram Reel container processing failed with status: ${status}`);
+                }
+                console.log('Instagram Reel container is ready for publishing!');
+                
+                // 4. Publish the container
+                console.log('Publishing Instagram Reel container...');
+                const publishRes = await axios.post(`https://graph.facebook.com/v20.0/${businessId}/media_publish`, null, {
+                    params: {
+                        creation_id: creationId,
+                        access_token: accessToken
+                    }
+                });
+                
+                console.log(`Instagram Reel post successful! Response:`, publishRes.data);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'instagram_reel', 'success', JSON.stringify(publishRes.data));
+            } catch (igReelErr) {
+                console.error('Instagram Reel posting failed:', igReelErr.response?.data || igReelErr.message);
+                const { logPublishing } = require('../models/database');
+                const errMsg = igReelErr.response?.data ? JSON.stringify(igReelErr.response.data) : igReelErr.message;
+                await logPublishing(event.id, 'instagram_reel', 'failed', errMsg);
+            }
+        }
+
         // Explicitly trigger garbage collection to free up memory (if enabled)
         if (global.gc) {
             console.log('Running explicit GC after post success...');
