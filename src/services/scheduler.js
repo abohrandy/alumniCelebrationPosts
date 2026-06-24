@@ -522,40 +522,39 @@ async function sendPost(event, _isRetry = false) {
             }
         }
 
-        // --- Instagram Posting ---
-        if (settings?.instagram_enabled === 1 || settings?.instagram_enabled === true) {
+        // --- Instagram Feed Posting ---
+        if (event.publish_instagram_feed === 1) {
             try {
-                console.log('Instagram posting enabled. Preparing image...');
-                // 1. Upload to ImgBB to get public URL
-                const publicUrl = await instagram.uploadToImgBB(imagePath, settings.imgbb_api_key);
+                console.log('Instagram Feed posting enabled. Fetching credentials...');
+                const businessId = settings?.instagram_business_id;
+                const accessToken = settings?.instagram_access_token;
+                const imgbbApiKey = settings?.imgbb_api_key;
+                
+                if (!businessId || !accessToken || !imgbbApiKey) {
+                    throw new Error('Instagram Business Account ID, Access Token, or ImgBB API Key is missing from Settings.');
+                }
+                
+                console.log('Preparing image and uploading to ImgBB...');
+                const publicUrl = await instagram.uploadToImgBB(imagePath, imgbbApiKey);
                 console.log(`Image uploaded to ImgBB: ${publicUrl}`);
-
-                // 2. Post to Instagram
+                
+                console.log('Posting to Instagram...');
                 const igPostId = await instagram.postToInstagram(
                     publicUrl,
                     caption,
-                    settings.instagram_business_id,
-                    settings.instagram_access_token
+                    businessId,
+                    accessToken
                 );
-                console.log(`Instagram post successful! Post ID: ${igPostId}`);
-                await logActivity(null, 'instagram_post_sent', event.id, `Instagram post sent. ID: ${igPostId}`, { platform: 'instagram', post_id: igPostId, public_url: publicUrl });
+                
+                console.log(`Instagram Feed post successful! Post ID: ${igPostId}`);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'instagram_feed', 'success', JSON.stringify({ post_id: igPostId, public_url: publicUrl }));
             } catch (igError) {
-                console.error('Instagram posting failed:', igError.message);
-                await logActivity(null, 'instagram_post_failed', event.id, `Instagram failed: ${igError.message}`, { platform: 'instagram', error: igError.message });
+                console.error('Instagram Feed posting failed:', igError.message);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'instagram_feed', 'failed', igError.message);
             }
         }
-
-        const logMsg = `Post sent for ${displayName} (${event.event_type}) via ${instance.name}`;
-        console.log(logMsg);
-        emitLog({ type: 'success', message: logMsg, timestamp: new Date().toISOString() });
-        await logActivity(null, 'post_sent', event.id, logMsg, {
-            event_type: event.event_type,
-            display_name: displayName,
-            whatsapp_account: instance.name,
-            whatsapp_primary: targetGroupId,
-            whatsapp_secondary: groupId2 || null,
-            caption: caption
-        });
 
         // Explicitly trigger garbage collection to free up memory (if enabled)
         if (global.gc) {
