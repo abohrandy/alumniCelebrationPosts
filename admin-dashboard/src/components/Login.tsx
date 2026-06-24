@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-
+import axios from 'axios';
 
 function Login() {
     const [theme] = useState(() => localStorage.getItem('theme') || 'dark');
+    const [fbLoading, setFbLoading] = useState(false);
 
     useEffect(() => {
         if (theme === 'light') {
@@ -11,6 +12,34 @@ function Login() {
             document.documentElement.classList.remove('light');
         }
     }, [theme]);
+
+    const handleFacebookLogin = () => {
+        if (typeof window === 'undefined' || !(window as any).FB) {
+            alert('Facebook SDK is loading or blocked by your browser. Please try again.');
+            return;
+        }
+
+        setFbLoading(true);
+        (window as any).FB.login((response: any) => {
+            if (response.authResponse) {
+                const token = response.authResponse.accessToken;
+                axios.post('/api/auth/facebook', { accessToken: token })
+                    .then(res => {
+                        if (res.data.success) {
+                            window.location.href = '/';
+                        }
+                    })
+                    .catch(err => {
+                        console.error('FB login verification failed:', err);
+                        alert(err.response?.data?.error || 'Facebook verification failed.');
+                        setFbLoading(false);
+                    });
+            } else {
+                console.log('User cancelled login or did not fully authorize.');
+                setFbLoading(false);
+            }
+        }, { scope: 'public_profile,email' });
+    };
 
     return (
         <div
@@ -36,24 +65,42 @@ function Login() {
                     </p>
                 </div>
 
-                <a
-                    href="/api/auth/google"
-                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:scale-105"
-                    style={{
-                        backgroundColor: 'var(--bg-card-solid)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border-color)',
-                        boxShadow: '0 4px 6px -1px var(--shadow-color)',
-                    }}
-                >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v2.97h3.86c2.26-2.09 3.56-5.17 3.56-8.79z" />
-                        <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-2.97c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.07c1.97 3.92 6.02 6.61 10.71 6.61z" />
-                        <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29v-3.07h-3.98a11.86 11.86 0 000 10.72l3.98-3.07z" />
-                        <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42c-2.07-1.94-4.78-3.13-8.02-3.13-4.69 0-8.74 2.69-10.71 6.61l3.98 3.07c.95-2.85 3.6-4.93 6.73-4.93z" />
-                    </svg>
-                    Sign in with Google
-                </a>
+                <div className="flex flex-col gap-3">
+                    <a
+                        href="/api/auth/google"
+                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:scale-105"
+                        style={{
+                            backgroundColor: 'var(--bg-card-solid)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)',
+                            boxShadow: '0 4px 6px -1px var(--shadow-color)',
+                        }}
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v2.97h3.86c2.26-2.09 3.56-5.17 3.56-8.79z" />
+                            <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-2.97c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.07c1.97 3.92 6.02 6.61 10.71 6.61z" />
+                            <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29v-3.07h-3.98a11.86 11.86 0 000 10.72l3.98-3.07z" />
+                            <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42c-2.07-1.94-4.78-3.13-8.02-3.13-4.69 0-8.74 2.69-10.71 6.61l3.98 3.07c.95-2.85 3.6-4.93 6.73-4.93z" />
+                        </svg>
+                        Sign in with Google
+                    </a>
+
+                    <button
+                        onClick={handleFacebookLogin}
+                        disabled={fbLoading}
+                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                        style={{
+                            backgroundColor: '#1877F2',
+                            color: '#ffffff',
+                            boxShadow: '0 4px 6px -1px rgba(24, 119, 242, 0.3)',
+                        }}
+                    >
+                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                        </svg>
+                        {fbLoading ? 'Signing in...' : 'Sign in with Facebook'}
+                    </button>
+                </div>
 
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Only authorized team members can access this platform

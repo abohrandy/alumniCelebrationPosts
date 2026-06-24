@@ -27,6 +27,63 @@ router.get('/auth/google/callback',
     }
 );
 
+router.post('/auth/facebook', async (req, res) => {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+        return res.status(400).json({ error: 'Access token is required' });
+    }
+
+    try {
+        const axios = require('axios');
+        const fbRes = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
+        const { name, email, picture } = fbRes.data;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required but was not provided by Facebook.' });
+        }
+
+        const avatarUrl = picture?.data?.url || null;
+
+        const { initDb } = require('../models/database');
+        const db = await initDb();
+
+        let user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+        if (!user) {
+            const role = (process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL) ? 'admin' : 'media';
+            const result = await db.run(
+                'INSERT INTO users (name, email, avatar_url, role) VALUES (?, ?, ?, ?)',
+                [name, email, avatarUrl, role]
+            );
+            user = await db.get('SELECT * FROM users WHERE id = ?', [result.lastID]);
+        } else {
+            if (avatarUrl && avatarUrl !== user.avatar_url) {
+                await db.run('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, user.id]);
+                user.avatar_url = avatarUrl;
+            }
+        }
+
+        req.login(user, async (err) => {
+            if (err) {
+                console.error('FB req.login error:', err);
+                return res.status(500).json({ error: 'Failed to establish session' });
+            }
+
+            await logActivity(user.id, 'user_login', null, `${user.name} (${user.email}) signed in via Facebook`, {
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                ip: req.ip
+            });
+
+            return res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar_url: user.avatar_url } });
+        });
+
+    } catch (fbErr) {
+        console.error('Facebook OAuth Error:', fbErr.response?.data || fbErr.message);
+        return res.status(401).json({ error: 'Invalid Facebook access token' });
+    }
+});
+
 router.get('/auth/me', (req, res) => {
     if (req.isAuthenticated && req.isAuthenticated()) {
         const { id, name, email, role, avatar_url } = req.user;
