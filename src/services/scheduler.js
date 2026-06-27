@@ -643,7 +643,9 @@ async function sendPost(event, _isRetry = false) {
                         'Authorization': `OAuth ${pageToken}`,
                         'offset': '0',
                         'file_size': fileSize,
-                        'Content-Type': 'application/octet-stream'
+                        'Content-Type': 'application/octet-stream',
+                        'Content-Length': fileSize,
+                        'X-Entity-Length': fileSize
                     }
                 });
                 
