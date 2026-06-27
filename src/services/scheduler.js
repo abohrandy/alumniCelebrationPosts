@@ -548,9 +548,11 @@ async function sendPost(event, _isRetry = false) {
                 const form = new FormData();
                 form.append('source', require('fs').createReadStream(imagePath));
                 form.append('published', 'false');
-                form.append('access_token', pageToken);
                 
                 const photoRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/photos`, form, {
+                    params: {
+                        access_token: pageToken
+                    },
                     headers: form.getHeaders()
                 });
                 
@@ -597,11 +599,18 @@ async function sendPost(event, _isRetry = false) {
                     throw new Error('Facebook Page ID or Access Token is missing from Settings.');
                 }
                 
+                let videoPath = '';
                 if (!event.generated_reel_path) {
-                    throw new Error('No generated reel video path found for this event.');
+                    console.log('No generated reel path found in database. Dynamically generating video from image path:', imagePath);
+                    const { generateReel } = require('./videoGenerator');
+                    const generatedReelPath = await generateReel(event.design_image_path);
+                    await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [generatedReelPath, event.id]);
+                    event.generated_reel_path = generatedReelPath;
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', generatedReelPath);
+                } else {
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
                 }
                 
-                const videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
                 if (!require('fs').existsSync(videoPath)) {
                     throw new Error(`Generated reel file does not exist at path: ${videoPath}`);
                 }
@@ -706,11 +715,18 @@ async function sendPost(event, _isRetry = false) {
                     throw new Error('Instagram Business Account ID or Access Token is missing from Settings.');
                 }
                 
+                let videoPath = '';
                 if (!event.generated_reel_path) {
-                    throw new Error('No generated reel video path found for this event.');
+                    console.log('No generated reel path found in database. Dynamically generating video from image path:', imagePath);
+                    const { generateReel } = require('./videoGenerator');
+                    const generatedReelPath = await generateReel(event.design_image_path);
+                    await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [generatedReelPath, event.id]);
+                    event.generated_reel_path = generatedReelPath;
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', generatedReelPath);
+                } else {
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
                 }
                 
-                const videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
                 if (!require('fs').existsSync(videoPath)) {
                     throw new Error(`Generated reel file does not exist at path: ${videoPath}`);
                 }
