@@ -76,6 +76,29 @@ const Settings = () => {
     const [connectingFb, setConnectingFb] = useState(false);
     const [fbPages, setFbPages] = useState<any[]>([]);
     const [showPagesModal, setShowPagesModal] = useState(false);
+    const [tempUserToken, setTempUserToken] = useState('');
+
+    const handleManualTokenExchange = () => {
+        if (!tempUserToken.trim()) return;
+        setConnectingFb(true);
+        axios.post('/api/settings/facebook/exchange', { userAccessToken: tempUserToken.trim() })
+            .then(res => {
+                if (res.data.pages && res.data.pages.length > 0) {
+                    setFbPages(res.data.pages);
+                    setShowPagesModal(true);
+                    setTempUserToken('');
+                } else {
+                    alert('No Facebook Pages found managed by your account.');
+                }
+            })
+            .catch(err => {
+                console.error('Failed to exchange token:', err);
+                alert(err.response?.data?.error || 'Failed to exchange Facebook token.');
+            })
+            .finally(() => {
+                setConnectingFb(false);
+            });
+    };
 
     const handleConnectFacebook = () => {
         if (!settings.facebook_app_id.trim() || !settings.facebook_app_secret.trim()) {
@@ -359,16 +382,51 @@ const Settings = () => {
                                 </div>
                             </div>
 
-                            <div className="flex justify-start">
-                                <button
-                                    type="button"
-                                    onClick={handleConnectFacebook}
-                                    disabled={connectingFb}
-                                    className="px-6 py-3 rounded-lg text-white font-medium hover:scale-105 transition-all duration-200"
-                                    style={{ backgroundColor: '#1877F2' }}
-                                >
-                                    {connectingFb ? 'Connecting to Meta...' : 'Connect Facebook & Instagram'}
-                                </button>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex justify-start">
+                                    <button
+                                        type="button"
+                                        onClick={handleConnectFacebook}
+                                        disabled={connectingFb}
+                                        className="px-6 py-3 rounded-lg text-white font-medium hover:scale-105 transition-all duration-200"
+                                        style={{ backgroundColor: '#1877F2' }}
+                                    >
+                                        {connectingFb && !tempUserToken.trim() ? 'Connecting to Meta...' : 'Connect Facebook & Instagram'}
+                                    </button>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 text-xs text-slate-500 my-1">
+                                    <hr className="flex-1 border-slate-700/50" />
+                                    <span>OR USE MANUAL TOKEN BACKUP</span>
+                                    <hr className="flex-1 border-slate-700/50" />
+                                </div>
+
+                                <div className="space-y-2 rounded-lg bg-slate-800/20 border border-slate-700/40 p-4">
+                                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                                        Manual User Access Token
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="password"
+                                            value={tempUserToken}
+                                            onChange={(e) => setTempUserToken(e.target.value)}
+                                            className="flex-1 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11 text-sm"
+                                            style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                            placeholder="Paste temporary User Access Token from Graph API Explorer..."
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleManualTokenExchange}
+                                            disabled={connectingFb || !tempUserToken.trim()}
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors h-11"
+                                        >
+                                            {connectingFb && tempUserToken.trim() ? 'Fetching...' : 'Fetch Pages'}
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                        Generate a temporary user access token at the <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Meta Graph API Explorer</a>. Ensure you select your App and request scopes: <code>pages_show_list, pages_manage_posts, pages_read_engagement, instagram_basic, instagram_content_publish, business_management</code>.
+                                    </p>
+                                </div>
                             </div>
 
                             <hr className="border-slate-700/50 my-4" />
