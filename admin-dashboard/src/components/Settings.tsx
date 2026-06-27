@@ -83,47 +83,74 @@ const Settings = () => {
             return;
         }
 
-        const FB = (window as any).FB;
-        if (!FB) {
-            alert('Facebook SDK is not loaded yet or is blocked by your browser.');
-            return;
-        }
+        const startFbLogin = () => {
+            const FB = (window as any).FB;
+            if (!FB) {
+                alert('Facebook SDK could not be loaded. Please disable any ad blockers (like uBlock Origin, Brave Shield, or Privacy Badger) which block Facebook tracking scripts, and try again.');
+                setConnectingFb(false);
+                return;
+            }
 
-        // Dynamically re-initialize Facebook SDK with the configured App ID
-        FB.init({
-            appId      : settings.facebook_app_id.trim(),
-            cookie     : true,
-            xfbml      : true,
-            version    : 'v20.0'
-        });
+            // Dynamically re-initialize Facebook SDK with the configured App ID
+            FB.init({
+                appId      : settings.facebook_app_id.trim(),
+                cookie     : true,
+                xfbml      : true,
+                version    : 'v20.0'
+            });
+
+            FB.login((response: any) => {
+                if (response.authResponse) {
+                    const userToken = response.authResponse.accessToken;
+                    axios.post('/api/settings/facebook/exchange', { userAccessToken: userToken })
+                        .then(res => {
+                            if (res.data.pages && res.data.pages.length > 0) {
+                                setFbPages(res.data.pages);
+                                setShowPagesModal(true);
+                            } else {
+                                alert('No Facebook Pages found managed by your account.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Failed to exchange token:', err);
+                            alert(err.response?.data?.error || 'Failed to exchange Facebook token.');
+                        })
+                        .finally(() => {
+                            setConnectingFb(false);
+                        });
+                } else {
+                    alert('Connection cancelled or not fully authorized.');
+                    setConnectingFb(false);
+                }
+            }, {
+                scope: 'public_profile,pages_show_list,pages_manage_posts,pages_manage_metadata,pages_read_engagement,instagram_basic,instagram_content_publish,business_management'
+            });
+        };
 
         setConnectingFb(true);
-        FB.login((response: any) => {
-            if (response.authResponse) {
-                const userToken = response.authResponse.accessToken;
-                axios.post('/api/settings/facebook/exchange', { userAccessToken: userToken })
-                    .then(res => {
-                        if (res.data.pages && res.data.pages.length > 0) {
-                            setFbPages(res.data.pages);
-                            setShowPagesModal(true);
-                        } else {
-                            alert('No Facebook Pages found managed by your account.');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Failed to exchange token:', err);
-                        alert(err.response?.data?.error || 'Failed to exchange Facebook token.');
-                    })
-                    .finally(() => {
-                        setConnectingFb(false);
-                    });
-            } else {
-                alert('Connection cancelled or not fully authorized.');
-                setConnectingFb(false);
+        if (!(window as any).FB) {
+            console.log('FB SDK not found on window. Injecting script dynamically...');
+            const id = 'facebook-jssdk';
+            if (document.getElementById(id)) {
+                // Already in DOM but maybe not loaded yet. Let's try after a delay.
+                setTimeout(startFbLogin, 1000);
+                return;
             }
-        }, {
-            scope: 'public_profile,pages_show_list,pages_manage_posts,pages_manage_metadata,pages_read_engagement,instagram_basic,instagram_content_publish,business_management'
-        });
+            const js = document.createElement('script');
+            js.id = id;
+            js.src = "https://connect.facebook.net/en_US/sdk.js";
+            js.onload = () => {
+                setTimeout(startFbLogin, 500);
+            };
+            js.onerror = () => {
+                alert('Facebook SDK script was blocked from loading. Please disable any ad blockers/trackers and refresh the page.');
+                setConnectingFb(false);
+            };
+            const fjs = document.getElementsByTagName('script')[0];
+            fjs.parentNode?.insertBefore(js, fjs);
+        } else {
+            startFbLogin();
+        }
     };
 
     const saveSettings = async (updated: typeof settings) => {
