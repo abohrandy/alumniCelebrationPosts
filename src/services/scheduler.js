@@ -672,6 +672,88 @@ async function sendPost(event, _isRetry = false) {
             }
         }
 
+        // --- Facebook Story Posting ---
+        if (event.publish_facebook_story === 1) {
+            try {
+                console.log('Facebook Story posting enabled. Fetching credentials...');
+                const pageId = settings?.facebook_page_id;
+                const pageToken = settings?.facebook_access_token;
+                
+                if (!pageId || !pageToken) {
+                    throw new Error('Facebook Page ID or Access Token is missing from Settings.');
+                }
+
+                let videoPath = '';
+                if (!event.generated_reel_path) {
+                    console.log('No generated reel path found in database. Dynamically generating video from image path:', imagePath);
+                    const { generateReel } = require('./videoGenerator');
+                    const generatedReelPath = await generateReel(event.design_image_path);
+                    await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [generatedReelPath, event.id]);
+                    event.generated_reel_path = generatedReelPath;
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', generatedReelPath);
+                } else {
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                }
+
+                if (!require('fs').existsSync(videoPath)) {
+                    throw new Error(`Generated reel video does not exist at path: ${videoPath}`);
+                }
+
+                const axios = require('axios');
+
+                // 1. Initialize upload session
+                console.log('Initializing Facebook Story upload session...');
+                const initRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/video_stories`, null, {
+                    params: {
+                        upload_phase: 'start',
+                        access_token: pageToken
+                    }
+                });
+
+                const videoId = initRes.data.video_id;
+                const uploadUrl = initRes.data.upload_url;
+                if (!videoId || !uploadUrl) {
+                    throw new Error('Failed to retrieve video_id or upload_url from Facebook Story initialization.');
+                }
+
+                // 2. Upload video binary
+                console.log(`Uploading video binary to Facebook Story upload session: ${videoId}...`);
+                const fs = require('fs');
+                const fileStream = fs.createReadStream(videoPath);
+                const fileSize = fs.statSync(videoPath).size;
+
+                await axios.post(uploadUrl, fileStream, {
+                    headers: {
+                        'Authorization': `OAuth ${pageToken}`,
+                        'offset': '0',
+                        'file_size': fileSize,
+                        'Content-Type': 'application/octet-stream',
+                        'Content-Length': fileSize,
+                        'X-Entity-Length': fileSize
+                    }
+                });
+
+                // 3. Finalize and publish
+                console.log(`Finalizing Facebook Story publish for video: ${videoId}...`);
+                const finishRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/video_stories`, null, {
+                    params: {
+                        upload_phase: 'finish',
+                        video_id: videoId,
+                        access_token: pageToken
+                    }
+                });
+
+                console.log(`Facebook Story post successful! Response:`, finishRes.data);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'facebook_story', 'success', JSON.stringify(finishRes.data));
+            } catch (storyErr) {
+                console.error('Facebook Story posting failed:', storyErr.response?.data || storyErr.message);
+                const { logPublishing } = require('../models/database');
+                const errMsg = storyErr.response?.data ? JSON.stringify(storyErr.response.data) : storyErr.message;
+                await logPublishing(event.id, 'facebook_story', 'failed', errMsg);
+            }
+        }
+
         // --- Instagram Feed Posting ---
         if (event.publish_instagram_feed === 1) {
             try {

@@ -89,6 +89,7 @@ async function initDb() {
                 publish_facebook_reel INTEGER DEFAULT 0,
                 publish_instagram_feed INTEGER DEFAULT 0,
                 publish_instagram_reel INTEGER DEFAULT 0,
+                publish_facebook_story INTEGER DEFAULT 0,
                 generated_reel_path TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -231,6 +232,9 @@ async function initDb() {
         }
         if (!columnNames.includes('publish_instagram_reel')) {
             await db.exec("ALTER TABLE events ADD COLUMN publish_instagram_reel INTEGER DEFAULT 0");
+        }
+        if (!columnNames.includes('publish_facebook_story')) {
+            await db.exec("ALTER TABLE events ADD COLUMN publish_facebook_story INTEGER DEFAULT 0");
         }
         if (!columnNames.includes('generated_reel_path')) {
             await db.exec("ALTER TABLE events ADD COLUMN generated_reel_path TEXT");

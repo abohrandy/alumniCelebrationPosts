@@ -18,6 +18,7 @@ const PLATFORM_LABELS: Record<string, string> = {
     whatsapp: 'WhatsApp Group',
     facebook_feed: 'Facebook Feed',
     facebook_reel: 'Facebook Reel',
+    facebook_story: 'Facebook Story',
     instagram_feed: 'Instagram Feed',
     instagram_reel: 'Instagram Reel'
 };
@@ -26,6 +27,7 @@ const PLATFORM_BADGE_STYLE: Record<string, string> = {
     whatsapp: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     facebook_feed: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
     facebook_reel: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+    facebook_story: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
     instagram_feed: 'bg-pink-500/10 text-pink-300 border-pink-500/20',
     instagram_reel: 'bg-pink-500/10 text-pink-300 border-pink-500/20'
 };
