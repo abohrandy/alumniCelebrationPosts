@@ -11,6 +11,8 @@ const Settings = () => {
         facebook_page_id: '',
         facebook_page_name: '',
         facebook_access_token: '',
+        facebook_app_id: '',
+        facebook_app_secret: '',
         imgbb_api_key: '',
         instagram_enabled: false,
         birthday_template: '',
@@ -39,6 +41,8 @@ const Settings = () => {
                     facebook_page_id: response.data.facebook_page_id || '',
                     facebook_page_name: response.data.facebook_page_name || '',
                     facebook_access_token: response.data.facebook_access_token || '',
+                    facebook_app_id: response.data.facebook_app_id || '',
+                    facebook_app_secret: response.data.facebook_app_secret || '',
                     imgbb_api_key: response.data.imgbb_api_key || '',
                     instagram_enabled: !!response.data.instagram_enabled,
                     birthday_template: response.data.birthday_template || '',
@@ -67,6 +71,72 @@ const Settings = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const [connectingFb, setConnectingFb] = useState(false);
+    const [fbPages, setFbPages] = useState<any[]>([]);
+    const [showPagesModal, setShowPagesModal] = useState(false);
+
+    const handleConnectFacebook = () => {
+        if (!settings.facebook_app_id.trim() || !settings.facebook_app_secret.trim()) {
+            alert('Please enter your Facebook App ID and App Secret first, and save the settings.');
+            return;
+        }
+
+        const FB = (window as any).FB;
+        if (!FB) {
+            alert('Facebook SDK is not loaded yet or is blocked by your browser.');
+            return;
+        }
+
+        // Dynamically re-initialize Facebook SDK with the configured App ID
+        FB.init({
+            appId      : settings.facebook_app_id.trim(),
+            cookie     : true,
+            xfbml      : true,
+            version    : 'v20.0'
+        });
+
+        setConnectingFb(true);
+        FB.login((response: any) => {
+            if (response.authResponse) {
+                const userToken = response.authResponse.accessToken;
+                axios.post('/api/settings/facebook/exchange', { userAccessToken: userToken })
+                    .then(res => {
+                        if (res.data.pages && res.data.pages.length > 0) {
+                            setFbPages(res.data.pages);
+                            setShowPagesModal(true);
+                        } else {
+                            alert('No Facebook Pages found managed by your account.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to exchange token:', err);
+                        alert(err.response?.data?.error || 'Failed to exchange Facebook token.');
+                    })
+                    .finally(() => {
+                        setConnectingFb(false);
+                    });
+            } else {
+                alert('Connection cancelled or not fully authorized.');
+                setConnectingFb(false);
+            }
+        }, {
+            scope: 'public_profile,pages_show_list,pages_manage_posts,pages_manage_metadata,pages_read_engagement,instagram_basic,instagram_content_publish,business_management'
+        });
+    };
+
+    const handleSelectPage = (page: any) => {
+        setSettings(prev => ({
+            ...prev,
+            facebook_page_id: page.id,
+            facebook_page_name: page.name,
+            facebook_access_token: page.access_token,
+            instagram_business_id: page.instagram ? page.instagram.id : prev.instagram_business_id,
+            instagram_access_token: page.instagram ? page.access_token : prev.instagram_access_token
+        }));
+        setShowPagesModal(false);
+        setMessage({ type: 'success', text: `Selected Page "${page.name}" and connected its linked accounts. Save settings to apply.` });
     };
 
     const isFacebookConnected = !!(settings.facebook_page_id.trim() && settings.facebook_page_name.trim() && settings.facebook_access_token.trim());
@@ -213,6 +283,54 @@ const Settings = () => {
                                 Facebook Settings
                             </h3>
                             
+                            <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm mb-4">
+                                <p className="font-semibold mb-1 flex items-center gap-1">🔑 Automated Credentials & Token Setup:</p>
+                                <p>To automatically link pages and generate permanent access tokens, enter your Facebook App ID and App Secret, save, and then click <strong>Connect Facebook & Instagram</strong>.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                        Facebook App ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.facebook_app_id}
+                                        onChange={(e) => setSettings({ ...settings, facebook_app_id: e.target.value })}
+                                        className="w-full rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="Enter Facebook App ID (Default: 461695913915110)..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                        Facebook App Secret
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={settings.facebook_app_secret}
+                                        onChange={(e) => setSettings({ ...settings, facebook_app_secret: e.target.value })}
+                                        className="w-full rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary transition-colors h-11"
+                                        style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        placeholder="Enter Facebook App Secret..."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-start">
+                                <button
+                                    type="button"
+                                    onClick={handleConnectFacebook}
+                                    disabled={connectingFb}
+                                    className="px-6 py-3 rounded-lg text-white font-medium hover:scale-105 transition-all duration-200"
+                                    style={{ backgroundColor: '#1877F2' }}
+                                >
+                                    {connectingFb ? 'Connecting to Meta...' : 'Connect Facebook & Instagram'}
+                                </button>
+                            </div>
+
+                            <hr className="border-slate-700/50 my-4" />
+
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
@@ -347,6 +465,51 @@ const Settings = () => {
                     </button>
                 </div>
             </form>
+
+            {showPagesModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="glass-card max-w-lg w-full p-6 space-y-4" style={{ backgroundColor: 'var(--bg-card-solid)', border: '1px solid var(--border-color)' }}>
+                        <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Select Facebook Page</h3>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            Choose the Facebook Page you want to post to. Connected Instagram Business accounts will be linked automatically.
+                        </p>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            {fbPages.map(page => (
+                                <button
+                                    key={page.id}
+                                    type="button"
+                                    onClick={() => handleSelectPage(page)}
+                                    className="w-full text-left p-4 rounded-xl border transition-all hover:bg-slate-700/30 flex justify-between items-center"
+                                    style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}
+                                >
+                                    <div>
+                                        <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{page.name}</div>
+                                        <div className="text-xs text-slate-500">ID: {page.id}</div>
+                                    </div>
+                                    {page.instagram ? (
+                                        <span className="text-xs bg-pink-500/10 text-pink-300 px-2.5 py-1 rounded-full border border-pink-500/20 flex items-center gap-1">
+                                            <Instagram size={12} />
+                                            Connected Business IG
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-slate-500">No IG linked</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex justify-end pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowPagesModal(false)}
+                                className="px-4 py-2 rounded-lg text-sm transition-all hover:bg-slate-700/50"
+                                style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

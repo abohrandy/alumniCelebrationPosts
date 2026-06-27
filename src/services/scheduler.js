@@ -541,19 +541,43 @@ async function sendPost(event, _isRetry = false) {
                 }
                 
                 const axios = require('axios');
+                
+                // 1. Upload the photo as unpublished to get a photo ID
+                console.log('Uploading photo to Facebook (unpublished)...');
                 const FormData = require('form-data');
                 const form = new FormData();
                 form.append('source', require('fs').createReadStream(imagePath));
-                form.append('message', caption);
+                form.append('published', 'false');
                 form.append('access_token', pageToken);
                 
-                const fbRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/photos`, form, {
+                const photoRes = await axios.post(`https://graph.facebook.com/v20.0/${pageId}/photos`, form, {
                     headers: form.getHeaders()
                 });
                 
-                console.log(`Facebook Feed post successful! Post ID: ${fbRes.data.post_id || fbRes.data.id}`);
+                const photoId = photoRes.data.id;
+                if (!photoId) {
+                    throw new Error('Failed to retrieve photo ID from unpublished upload.');
+                }
+                console.log(`Photo uploaded successfully. Photo ID: ${photoId}`);
+                
+                // 2. Publish to the Page Feed using POST /{page-id}/feed
+                console.log('Creating post on page feed with the attached photo...');
+                const feedRes = await axios.post(
+                    `https://graph.facebook.com/v20.0/${pageId}/feed`,
+                    {
+                        message: caption,
+                        attached_media: [{ media_fbid: photoId }]
+                    },
+                    {
+                        params: {
+                            access_token: pageToken
+                        }
+                    }
+                );
+                
+                console.log(`Facebook Feed post successful! Post ID: ${feedRes.data.id}`);
                 const { logPublishing } = require('../models/database');
-                await logPublishing(event.id, 'facebook_feed', 'success', JSON.stringify(fbRes.data));
+                await logPublishing(event.id, 'facebook_feed', 'success', JSON.stringify(feedRes.data));
             } catch (fbErr) {
                 console.error('Facebook Feed posting failed:', fbErr.response?.data || fbErr.message);
                 const { logPublishing } = require('../models/database');

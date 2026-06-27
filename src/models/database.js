@@ -393,6 +393,8 @@ async function initDb() {
             facebook_page_id TEXT DEFAULT '',
             facebook_page_name TEXT DEFAULT '',
             facebook_access_token TEXT DEFAULT '',
+            facebook_app_id TEXT DEFAULT '',
+            facebook_app_secret TEXT DEFAULT '',
             imgbb_api_key TEXT DEFAULT '',
             instagram_enabled INTEGER DEFAULT 0,
             birthday_template TEXT DEFAULT 'Happy Birthday, {name} 🎉🎂\n\nOn this special day, MUAA FCT celebrates a remarkable and inspiring woman. Your strength, brilliance, and dedication continue to make a difference. May this new year bring you greater success, divine favor, good health, and endless happiness.\n\nKeep shining and showing the light! ✨\n\nWith love always,\nMUAA FCT\n\n@{phone}',
@@ -421,6 +423,12 @@ async function initDb() {
     }
     if (!settingsCols.includes('facebook_access_token')) {
         await db.exec("ALTER TABLE settings ADD COLUMN facebook_access_token TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('facebook_app_id')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN facebook_app_id TEXT DEFAULT ''");
+    }
+    if (!settingsCols.includes('facebook_app_secret')) {
+        await db.exec("ALTER TABLE settings ADD COLUMN facebook_app_secret TEXT DEFAULT ''");
     }
     if (!settingsCols.includes('imgbb_api_key')) {
         await db.exec("ALTER TABLE settings ADD COLUMN imgbb_api_key TEXT DEFAULT ''");

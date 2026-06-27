@@ -120,6 +120,7 @@ router.patch('/celebrants/:id/status', requireAuth, eventController.toggleStatus
 // ── Settings Routes (admin only) ──
 router.get('/settings', requireAdmin, settingsController.getSettings);
 router.post('/settings', requireAdmin, settingsController.updateSettings);
+router.post('/settings/facebook/exchange', requireAdmin, settingsController.exchangeFacebookToken);
 
 // ── User Management Routes (admin only) ──
 router.get('/users', requireAdmin, async (req, res) => {

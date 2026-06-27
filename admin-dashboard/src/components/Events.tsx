@@ -27,6 +27,7 @@ interface EventItem {
     publish_facebook_reel?: number;
     publish_instagram_feed?: number;
     publish_instagram_reel?: number;
+    generated_reel_path?: string | null;
 }
 
 interface WhatsAppProfile {

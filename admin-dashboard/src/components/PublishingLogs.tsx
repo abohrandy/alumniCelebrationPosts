@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { History, Filter, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { History, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 interface PublishingLogEntry {
