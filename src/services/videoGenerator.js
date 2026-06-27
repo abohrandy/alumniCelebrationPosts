@@ -42,7 +42,7 @@ function generateReel(relativeImagePath) {
         // - z='zoom+0.0005' gives a slow, cinematic zoom.
         // - s=1080x1920 sets the output video resolution.
         // - pix_fmt yuv420p ensures compatibility with standard web/mobile players and platforms.
-        const ffmpegCmd = `ffmpeg -loop 1 -i "${inputPath}" -vf "scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='zoom+0.0005':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=225:s=1080x1920" -c:v libx264 -t 9 -pix_fmt yuv420p -y "${absoluteOutputPath}"`;
+        const ffmpegCmd = `ffmpeg -loop 1 -i "${inputPath}" -filter_complex "[0:v]scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,boxblur=40:10[bg]; [0:v]scale=2160:2160[fg]; [bg][fg]overlay=0:(H-h)/2[overlayed]; [overlayed]zoompan=z='zoom+0.0005':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=225:s=1080x1920" -c:v libx264 -t 9 -pix_fmt yuv420p -y "${absoluteOutputPath}"`;
 
         console.log(`[ReelGen] Generating video for ${relativeImagePath}...`);
         exec(ffmpegCmd, (error, stdout, stderr) => {
