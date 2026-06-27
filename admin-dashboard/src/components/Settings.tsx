@@ -126,17 +126,32 @@ const Settings = () => {
         });
     };
 
+    const saveSettings = async (updated: typeof settings) => {
+        try {
+            setSaving(true);
+            setMessage({ type: '', text: '' });
+            await axios.post('/api/settings', updated);
+            setMessage({ type: 'success', text: 'Settings saved and connected successfully!' });
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            setMessage({ type: 'error', text: 'Failed to auto-save settings.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSelectPage = (page: any) => {
-        setSettings(prev => ({
-            ...prev,
+        const updated = {
+            ...settings,
             facebook_page_id: page.id,
             facebook_page_name: page.name,
             facebook_access_token: page.access_token,
-            instagram_business_id: page.instagram ? page.instagram.id : prev.instagram_business_id,
-            instagram_access_token: page.instagram ? page.access_token : prev.instagram_access_token
-        }));
+            instagram_business_id: page.instagram ? page.instagram.id : settings.instagram_business_id,
+            instagram_access_token: page.instagram ? page.access_token : settings.instagram_access_token
+        };
+        setSettings(updated);
         setShowPagesModal(false);
-        setMessage({ type: 'success', text: `Selected Page "${page.name}" and connected its linked accounts. Save settings to apply.` });
+        saveSettings(updated);
     };
 
     const isFacebookConnected = !!(settings.facebook_page_id.trim() && settings.facebook_page_name.trim() && settings.facebook_access_token.trim());
