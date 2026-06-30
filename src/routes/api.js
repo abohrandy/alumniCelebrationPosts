@@ -246,6 +246,8 @@ router.delete('/whatsapp/profiles/:id', requireAdmin, async (req, res) => {
         if (profile.is_default) return res.status(400).json({ error: 'Cannot delete the primary profile' });
 
         await waClient.removeInstance(id);
+        // Clear references in events to avoid FOREIGN KEY constraint failures
+        await db.run('UPDATE events SET whatsapp_profile_id = NULL WHERE whatsapp_profile_id = ?', [id]);
         await db.run('DELETE FROM whatsapp_profiles WHERE id = ?', [id]);
         
         // Clean up auth dir
