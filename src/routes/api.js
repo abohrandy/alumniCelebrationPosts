@@ -107,6 +107,17 @@ router.put('/events/:id', requireAuth, eventController.update);
 router.post('/events/:id/post-now', requireAuth, eventController.postNow);
 router.get('/events', requireAuth, eventController.list);
 router.delete('/events/:id', requireAuth, eventController.delete);
+router.get('/api/debug/events', async (req, res) => {
+    try {
+        const { getDb } = require('../models/database');
+        const db = await getDb();
+        const events = await db.all('SELECT id, title, full_name, event_type, whatsapp_profile_id FROM events');
+        const profiles = await db.all('SELECT id, name, is_default FROM whatsapp_profiles');
+        res.json({ events, profiles });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 router.patch('/events/:id/status', requireAuth, eventController.toggleStatus);
 
 // Backward compat — keep old /celebrants routes pointing to events
