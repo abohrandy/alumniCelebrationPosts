@@ -65,9 +65,15 @@ class WhatsAppClient {
 
             let version;
             try {
-                const result = await fetchLatestBaileysVersion();
+                // Prevent hanging indefinitely on slow or blocked external lookups
+                const versionPromise = fetchLatestBaileysVersion();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Baileys version fetch timeout')), 5000)
+                );
+                const result = await Promise.race([versionPromise, timeoutPromise]);
                 version = result.version;
             } catch (e) {
+                console.log(`[WA-${this.id}] Using fallback version due to fetch error: ${e.message}`);
                 version = [2, 3000, 1015901307];
             }
 
