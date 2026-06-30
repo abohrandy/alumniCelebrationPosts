@@ -42,6 +42,9 @@ const WhatsAppStatus = () => {
     useEffect(() => {
         fetchProfiles();
 
+        // Fallback periodic polling to ensure status syncs even if socket connection drops/fails
+        const interval = setInterval(fetchProfiles, 5000);
+
         // Socket listeners
         socket.on('whatsapp_status_update', (data) => {
             console.log('Live status update:', data);
@@ -59,6 +62,7 @@ const WhatsAppStatus = () => {
         });
 
         return () => {
+            clearInterval(interval);
             socket.off('whatsapp_status_update');
             socket.off('post_log');
         };
