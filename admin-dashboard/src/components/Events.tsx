@@ -28,6 +28,7 @@ interface EventItem {
     publish_instagram_feed?: number;
     publish_instagram_reel?: number;
     publish_facebook_story?: number;
+    publish_instagram_story?: number;
     generated_reel_path?: string | null;
     repeat_interval_hours?: number | null;
 }
@@ -105,6 +106,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [publishInstagramFeed, setPublishInstagramFeed] = useState(false);
     const [publishInstagramReel, setPublishInstagramReel] = useState(false);
     const [publishFacebookStory, setPublishFacebookStory] = useState(false);
+    const [publishInstagramStory, setPublishInstagramStory] = useState(false);
     const [generatedReelPath, setGeneratedReelPath] = useState<string | null>(null);
 
     useEffect(() => {
@@ -159,6 +161,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPublishInstagramFeed(false);
         setPublishInstagramReel(false);
         setPublishFacebookStory(false);
+        setPublishInstagramStory(false);
         setGeneratedReelPath(null);
         if (profiles.length > 0) {
             const defaultProfile = profiles.find(p => (p as any).is_default) || profiles[0];
@@ -193,6 +196,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPublishInstagramFeed(event.publish_instagram_feed === 1);
         setPublishInstagramReel(event.publish_instagram_reel === 1);
         setPublishFacebookStory(event.publish_facebook_story === 1);
+        setPublishInstagramStory(event.publish_instagram_story === 1);
         setGeneratedReelPath(event.generated_reel_path || null);
         
         if (event.repeat_interval_hours) {
@@ -300,6 +304,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
             formData.append('publish_instagram_feed', publishInstagramFeed ? '1' : '0');
             formData.append('publish_instagram_reel', publishInstagramReel ? '1' : '0');
             formData.append('publish_facebook_story', publishFacebookStory ? '1' : '0');
+            formData.append('publish_instagram_story', publishInstagramStory ? '1' : '0');
 
             if (editingId) {
                 await axios.put(`/api/events/${editingId}`, formData);
@@ -800,6 +805,15 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
                                         />
                                         Instagram Reel
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={publishInstagramStory} 
+                                            onChange={(e) => setPublishInstagramStory(e.target.checked)} 
+                                            className="w-4 h-4 rounded border-slate-600 text-primary focus:ring-primary bg-slate-700" 
+                                        />
+                                        Instagram Story
                                     </label>
                                 </div>
                             </div>

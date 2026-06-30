@@ -34,6 +34,7 @@ const eventController = {
             const publishInstagramFeed = parseBoolField(req.body.publish_instagram_feed, 0);
             const publishInstagramReel = parseBoolField(req.body.publish_instagram_reel, 0);
             const publishFacebookStory = parseBoolField(req.body.publish_facebook_story, 0);
+            const publishInstagramStory = parseBoolField(req.body.publish_instagram_story, 0);
 
             if (!req.files || (!req.files.design_image && !req.files['design_image[]'])) {
                 return res.status(400).json({ error: 'No image uploaded.' });
@@ -80,8 +81,8 @@ const eventController = {
              const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
                  design_image_path, caption, message_template, schedule_type, repeat_interval_days, repeat_interval_hours, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id,
-                 publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel, publish_facebook_story)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel, publish_facebook_story, publish_instagram_story)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
@@ -105,7 +106,8 @@ const eventController = {
                     publishFacebookReel,
                     publishInstagramFeed,
                     publishInstagramReel,
-                    publishFacebookStory
+                    publishFacebookStory,
+                    publishInstagramStory
                 ]
             );
 
@@ -190,6 +192,7 @@ const eventController = {
             const publishInstagramFeed = parseBoolField(req.body.publish_instagram_feed, 0);
             const publishInstagramReel = parseBoolField(req.body.publish_instagram_reel, 0);
             const publishFacebookStory = parseBoolField(req.body.publish_facebook_story, 0);
+            const publishInstagramStory = parseBoolField(req.body.publish_instagram_story, 0);
 
             const db = await initDb();
 
@@ -198,7 +201,7 @@ const eventController = {
                 SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
                     schedule_type = ?, repeat_interval_days = ?, repeat_interval_hours = ?, post_time = ?, expiry_date = ?, repeat_annually = ?,
-                    whatsapp_profile_id = ?, publish_whatsapp = ?, publish_facebook_feed = ?, publish_facebook_reel = ?, publish_instagram_feed = ?, publish_instagram_reel = ?, publish_facebook_story = ?
+                    whatsapp_profile_id = ?, publish_whatsapp = ?, publish_facebook_feed = ?, publish_facebook_reel = ?, publish_instagram_feed = ?, publish_instagram_reel = ?, publish_facebook_story = ?, publish_instagram_story = ?
             `;
             let queryParams = [
                 title || null,
@@ -220,7 +223,8 @@ const eventController = {
                 publishFacebookReel,
                 publishInstagramFeed,
                 publishInstagramReel,
-                publishFacebookStory
+                publishFacebookStory,
+                publishInstagramStory
             ];
 
             if (req.files && (req.files.design_image || req.files['design_image[]'])) {

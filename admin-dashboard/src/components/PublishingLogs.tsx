@@ -20,7 +20,8 @@ const PLATFORM_LABELS: Record<string, string> = {
     facebook_reel: 'Facebook Reel',
     facebook_story: 'Facebook Story',
     instagram_feed: 'Instagram Feed',
-    instagram_reel: 'Instagram Reel'
+    instagram_reel: 'Instagram Reel',
+    instagram_story: 'Instagram Story'
 };
 
 const PLATFORM_BADGE_STYLE: Record<string, string> = {
@@ -29,7 +30,8 @@ const PLATFORM_BADGE_STYLE: Record<string, string> = {
     facebook_reel: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
     facebook_story: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
     instagram_feed: 'bg-pink-500/10 text-pink-300 border-pink-500/20',
-    instagram_reel: 'bg-pink-500/10 text-pink-300 border-pink-500/20'
+    instagram_reel: 'bg-pink-500/10 text-pink-300 border-pink-500/20',
+    instagram_story: 'bg-pink-500/10 text-pink-300 border-pink-500/20'
 };
 
 function PublishingLogs() {

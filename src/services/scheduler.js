@@ -965,6 +965,114 @@ async function sendPost(event, _isRetry = false) {
             }
         }
 
+        // --- Instagram Story Posting ---
+        if (event.publish_instagram_story === 1) {
+            try {
+                console.log('Instagram Story posting enabled. Fetching credentials...');
+                const businessId = settings?.instagram_business_id;
+                const accessToken = settings?.instagram_access_token;
+                
+                if (!businessId || !accessToken) {
+                    throw new Error('Instagram Business Account ID or Access Token is missing from Settings.');
+                }
+                
+                let videoPath = '';
+                if (!event.generated_reel_path) {
+                    console.log('No generated reel path found in database. Dynamically generating video from image path:', imagePath);
+                    const { generateReel } = require('./videoGenerator');
+                    const generatedReelPath = await generateReel(event.design_image_path);
+                    await db.run('UPDATE events SET generated_reel_path = ? WHERE id = ?', [generatedReelPath, event.id]);
+                    event.generated_reel_path = generatedReelPath;
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', generatedReelPath);
+                } else {
+                    videoPath = require('path').resolve(process.env.DATA_DIR || '', event.generated_reel_path);
+                }
+                
+                if (!require('fs').existsSync(videoPath)) {
+                    throw new Error(`Generated reel file does not exist at path: ${videoPath}`);
+                }
+                
+                // 1. Upload video to tmpfiles.org to get a public URL
+                console.log('Uploading Story video to tmpfiles.org for temporary public URL...');
+                const FormData = require('form-data');
+                const form = new FormData();
+                form.append('file', require('fs').createReadStream(videoPath));
+                
+                const axios = require('axios');
+                const uploadRes = await axios.post('https://tmpfiles.org/api/v1/upload', form, {
+                    headers: form.getHeaders(),
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
+                });
+                
+                if (!uploadRes.data || !uploadRes.data.data || !uploadRes.data.data.url) {
+                    throw new Error('Failed to upload video to tmpfiles.org: ' + JSON.stringify(uploadRes.data));
+                }
+                
+                const viewUrl = uploadRes.data.data.url;
+                const publicVideoUrl = viewUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+                console.log(`Video uploaded to tmpfiles.org successfully! Direct URL: ${publicVideoUrl}`);
+                
+                // 2. Create IG media container for Stories (omit caption parameter)
+                console.log('Creating Instagram Story media container...');
+                const containerRes = await axios.post(`https://graph.facebook.com/v20.0/${businessId}/media`, null, {
+                    params: {
+                        media_type: 'STORIES',
+                        video_url: publicVideoUrl,
+                        access_token: accessToken
+                    }
+                });
+                
+                const creationId = containerRes.data.id;
+                if (!creationId) {
+                    throw new Error('Failed to retrieve creation_id from Instagram Story container initialization.');
+                }
+                
+                // 3. Poll container status until FINISHED
+                console.log(`Instagram Story container created: ${creationId}. Polling status...`);
+                let status = 'IN_PROGRESS';
+                let attempts = 0;
+                while (status === 'IN_PROGRESS' || status === 'SUBMITTED') {
+                    if (attempts > 30) {
+                        throw new Error('Timeout waiting for Instagram Story container to finish processing.');
+                    }
+                    await new Promise(r => setTimeout(r, 10000)); // wait 10s
+                    attempts++;
+                    
+                    const statusRes = await axios.get(`https://graph.facebook.com/v20.0/${creationId}`, {
+                        params: {
+                            fields: 'status_code',
+                            access_token: accessToken
+                        }
+                    });
+                    status = statusRes.data.status_code;
+                    console.log(`Instagram Story container status check attempt ${attempts}: ${status}`);
+                }
+                
+                if (status !== 'FINISHED') {
+                    throw new Error(`Instagram Story container creation failed with status: ${status}`);
+                }
+                
+                // 4. Publish Story container
+                console.log(`Publishing Instagram Story: ${creationId}...`);
+                const publishRes = await axios.post(`https://graph.facebook.com/v20.0/${businessId}/media_publish`, null, {
+                    params: {
+                        creation_id: creationId,
+                        access_token: accessToken
+                    }
+                });
+                
+                console.log(`Instagram Story post successful! Response:`, publishRes.data);
+                const { logPublishing } = require('../models/database');
+                await logPublishing(event.id, 'instagram_story', 'success', JSON.stringify(publishRes.data));
+            } catch (igStoryErr) {
+                console.error('Instagram Story posting failed:', igStoryErr.response?.data || igStoryErr.message);
+                const { logPublishing } = require('../models/database');
+                const errMsg = igStoryErr.response?.data ? JSON.stringify(igStoryErr.response.data) : igStoryErr.message;
+                await logPublishing(event.id, 'instagram_story', 'failed', errMsg);
+            }
+        }
+
         // Explicitly trigger garbage collection to free up memory (if enabled)
         if (global.gc) {
             console.log('Running explicit GC after post success...');
