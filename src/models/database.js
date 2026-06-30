@@ -90,6 +90,7 @@ async function initDb() {
                 publish_instagram_feed INTEGER DEFAULT 0,
                 publish_instagram_reel INTEGER DEFAULT 0,
                 publish_facebook_story INTEGER DEFAULT 0,
+                repeat_interval_hours INTEGER DEFAULT NULL,
                 generated_reel_path TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -238,6 +239,9 @@ async function initDb() {
         }
         if (!columnNames.includes('generated_reel_path')) {
             await db.exec("ALTER TABLE events ADD COLUMN generated_reel_path TEXT");
+        }
+        if (!columnNames.includes('repeat_interval_hours')) {
+            await db.exec("ALTER TABLE events ADD COLUMN repeat_interval_hours INTEGER DEFAULT NULL");
         }
         // Remove first_name and second_name if full_name exists and they are no longer needed
         if (columnNames.includes('first_name') && columnNames.includes('full_name')) {

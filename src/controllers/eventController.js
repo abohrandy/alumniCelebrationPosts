@@ -14,7 +14,7 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
+                event_date, schedule_type, repeat_interval_days, repeat_interval_hours, post_time, expiry_date, repeat_annually,
                 whatsapp_profile_id,
                 captions // New: Array of caption strings
             } = req.body;
@@ -79,9 +79,9 @@ const eventController = {
 
              const result = await db.run(
                 `INSERT INTO events (title, full_name, phone_number, event_type, event_date, 
-                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id,
+                 design_image_path, caption, message_template, schedule_type, repeat_interval_days, repeat_interval_hours, post_time, current_image_index, expiry_date, repeat_annually, created_by, whatsapp_profile_id,
                  publish_whatsapp, publish_facebook_feed, publish_facebook_reel, publish_instagram_feed, publish_instagram_reel, publish_facebook_story)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title || null,
                     fullName || null,
@@ -93,6 +93,7 @@ const eventController = {
                     message_template || null,
                     schedule_type || 'single_date',
                     repeat_interval_days || null,
+                    repeat_interval_hours || null,
                     post_time || '06:00',
                     0,
                     expiry_date || null,
@@ -170,7 +171,7 @@ const eventController = {
                 event_type, title,
                 full_name, phone_number,
                 caption, message_template,
-                event_date, schedule_type, repeat_interval_days, post_time, expiry_date, repeat_annually,
+                event_date, schedule_type, repeat_interval_days, repeat_interval_hours, post_time, expiry_date, repeat_annually,
                 whatsapp_profile_id,
                 captions // New: Array of caption strings
             } = req.body;
@@ -196,7 +197,7 @@ const eventController = {
                 UPDATE events 
                 SET title = ?, full_name = ?, phone_number = ?,
                     event_type = ?, event_date = ?, caption = ?, message_template = ?,
-                    schedule_type = ?, repeat_interval_days = ?, post_time = ?, expiry_date = ?, repeat_annually = ?,
+                    schedule_type = ?, repeat_interval_days = ?, repeat_interval_hours = ?, post_time = ?, expiry_date = ?, repeat_annually = ?,
                     whatsapp_profile_id = ?, publish_whatsapp = ?, publish_facebook_feed = ?, publish_facebook_reel = ?, publish_instagram_feed = ?, publish_instagram_reel = ?, publish_facebook_story = ?
             `;
             let queryParams = [
@@ -209,6 +210,7 @@ const eventController = {
                 message_template || null,
                 schedule_type || 'single_date',
                 repeat_interval_days || null,
+                repeat_interval_hours || null,
                 post_time || '06:00',
                 expiry_date || null,
                 repeat_annually ? 1 : 0,

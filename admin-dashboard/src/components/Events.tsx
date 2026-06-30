@@ -29,6 +29,7 @@ interface EventItem {
     publish_instagram_reel?: number;
     publish_facebook_story?: number;
     generated_reel_path?: string | null;
+    repeat_interval_hours?: number | null;
 }
 
 interface WhatsAppProfile {
@@ -88,6 +89,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
     const [eventDate, setEventDate] = useState('');
     const [scheduleType, setScheduleType] = useState('single_date');
     const [repeatInterval, setRepeatInterval] = useState('');
+    const [repeatUnit, setRepeatUnit] = useState<'days' | 'hours'>('days');
     const [postTime, setPostTime] = useState('06:00');
     const [expiryDate, setExpiryDate] = useState('');
     const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -145,6 +147,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setEventDate('');
         setScheduleType('single_date');
         setRepeatInterval('');
+        setRepeatUnit('days');
         setPostTime('06:00');
         setExpiryDate('');
         setImageFiles([]);
@@ -192,6 +195,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
         setPublishFacebookStory(event.publish_facebook_story === 1);
         setGeneratedReelPath(event.generated_reel_path || null);
         
+        if (event.repeat_interval_hours) {
+            setRepeatInterval(String(event.repeat_interval_hours));
+            setRepeatUnit('hours');
+        } else {
+            setRepeatInterval(event.repeat_interval_days ? String(event.repeat_interval_days) : '');
+            setRepeatUnit('days');
+        }
         if (event.captions && (event.event_type === 'recurrent_announcement' || event.event_type === 'monday_market')) {
             setCaptions(event.captions.map((c: any) => c.caption_text));
         } else {
@@ -259,7 +269,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                 formData.append('schedule_type', scheduleType);
                 formData.append('post_time', postTime);
                 if (scheduleType === 'interval') {
-                    formData.append('repeat_interval_days', repeatInterval);
+                    if (repeatUnit === 'hours') {
+                        formData.append('repeat_interval_hours', repeatInterval);
+                        formData.append('repeat_interval_days', '');
+                    } else {
+                        formData.append('repeat_interval_days', repeatInterval);
+                        formData.append('repeat_interval_hours', '');
+                    }
                 }
                 if (expiryDate) formData.append('expiry_date', expiryDate);
             }
@@ -533,13 +549,26 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 {scheduleType === 'interval' && (
-                                                    <div>
-                                                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                                                            <Repeat size={14} className="inline mr-1" />
-                                                            Repeat Every (days)
-                                                        </label>
-                                                        <input type="number" min="1" value={repeatInterval} onChange={(e) => setRepeatInterval(e.target.value)}
-                                                            className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
+                                                    <div className="flex gap-2 items-end">
+                                                        <div className="flex-1">
+                                                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                                                                <Repeat size={14} className="inline mr-1" />
+                                                                Repeat Every
+                                                            </label>
+                                                            <input type="number" min="1" value={repeatInterval} onChange={(e) => setRepeatInterval(e.target.value)}
+                                                                className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
+                                                        </div>
+                                                        <div className="w-28">
+                                                            <select
+                                                                value={repeatUnit}
+                                                                onChange={(e) => setRepeatUnit(e.target.value as 'days' | 'hours')}
+                                                                className="w-full rounded-lg px-2 py-2"
+                                                                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                                            >
+                                                                <option value="days">Days</option>
+                                                                <option value="hours">Hours</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
                                                 )}
                                                 <div className={scheduleType === 'weekly' ? 'col-span-2' : ''}>
@@ -556,13 +585,13 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     
                                     {eventType === 'monday_market' && (
                                         <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-sm text-orange-400">
-                                            📅 <strong>Monday Market:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} days at ${postTime || 'specified time'}`} to the <strong>Primary Group ONLY</strong>.
+                                            📅 <strong>Monday Market:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} ${repeatUnit} ${repeatUnit === 'days' ? `at ${postTime || 'specified time'}` : '(ignoring post time)'}`} to the <strong>Primary Group ONLY</strong>.
                                         </div>
                                     )}
 
                                     {eventType === 'recurrent_announcement' && (
                                         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
-                                            📅 <strong>Recurrent Announcement:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} days at ${postTime || 'specified time'}`} to <strong>ALL configured groups</strong>.
+                                            📅 <strong>Recurrent Announcement:</strong> Posts automatically {scheduleType === 'weekly' ? 'every Monday at 5:00 AM' : `every ${repeatInterval || 'X'} ${repeatUnit} ${repeatUnit === 'days' ? `at ${postTime || 'specified time'}` : '(ignoring post time)'}`} to <strong>ALL configured groups</strong>.
                                         </div>
                                     )}
 
@@ -915,7 +944,9 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                                 <div className="p-2 bg-white/5 rounded-lg text-purple-400"><Repeat size={16} /></div>
                                                 <div>
                                                     <p className="text-[10px] text-slate-500 uppercase">Frequency</p>
-                                                    <p className="text-sm font-medium">Every {viewingEvent.repeat_interval_days} days</p>
+                                                    <p className="text-sm font-medium">
+                                                        Every {viewingEvent.repeat_interval_hours ? `${viewingEvent.repeat_interval_hours} hours` : `${viewingEvent.repeat_interval_days} days`}
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
@@ -1010,7 +1041,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <div className="flex items-center gap-2 lg:gap-3 text-[10px] lg:text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
                                         {event.event_date && <span>📅 {event.event_date}</span>}
                                         {event.schedule_type === 'weekly' && <span>🔄 Weekly</span>}
-                                        {event.schedule_type === 'interval' && <span>🔄 Every {event.repeat_interval_days}d</span>}
+                                        {event.schedule_type === 'interval' && <span>🔄 Every {event.repeat_interval_hours ? `${event.repeat_interval_hours}h` : `${event.repeat_interval_days}d`}</span>}
                                         {event.expiry_date && <span className="text-pink-400 font-medium">⌛ Expires: {event.expiry_date}</span>}
                                         {event.creator_name && <span>by {event.creator_name}</span>}
                                     </div>

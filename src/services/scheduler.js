@@ -347,60 +347,128 @@ async function processIntervalEvents() {
             }
         }
 
-        // 2. Process events due for posting NOW
+        // 2. Process daily interval events due for posting NOW
         const eventsToPost = await db.all(
             `SELECT * FROM events
              WHERE schedule_type = 'interval'
              AND status = 'active'
+             AND repeat_interval_days IS NOT NULL
+             AND repeat_interval_days > 0
              AND post_time = ?
              ORDER BY created_at ASC`,
             [currentTime]
         );
 
         for (const event of eventsToPost) {
-            // Check if enough days have passed since creation or last post
-            if (event.repeat_interval_days) {
-                const createdDateStr = event.created_at.split(' ')[0]; // Extract YYYY-MM-DD
-                const createdDate = new Date(`${createdDateStr}T00:00:00Z`);
-                const daysSinceCreation = Math.round((todayDate - createdDate) / (1000 * 60 * 60 * 24));
+            // Check if enough days have passed since creation
+            const createdDateStr = event.created_at.split(' ')[0]; // Extract YYYY-MM-DD
+            const createdDate = new Date(`${createdDateStr}T00:00:00Z`);
+            const daysSinceCreation = Math.round((todayDate - createdDate) / (1000 * 60 * 60 * 24));
 
-                if (daysSinceCreation % event.repeat_interval_days === 0) {
-                    console.log(`Processing interval event: ${event.title || event.id}`);
-                    
-                    // Round Robin Logic for Interval Events
-                    const images = await db.all('SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
-                    const captions = await db.all('SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+            if (daysSinceCreation % event.repeat_interval_days === 0) {
+                console.log(`Processing daily interval event: ${event.title || event.id}`);
+                
+                // Round Robin Logic for Interval Events
+                const images = await db.all('SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+                const captions = await db.all('SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
 
-                    let selectedImagePath = event.design_image_path;
-                    let nextImageIndex = event.current_image_index;
-                    if (images.length > 0) {
-                        const imgIndex = event.current_image_index % images.length;
-                        selectedImagePath = images[imgIndex].image_path;
-                        nextImageIndex = (imgIndex + 1) % images.length;
-                    }
-
-                    let selectedCaption = event.caption;
-                    let nextCaptionIndex = event.current_caption_index || 0;
-                    if (captions.length > 0) {
-                        const capIndex = (event.current_caption_index || 0) % captions.length;
-                        selectedCaption = captions[capIndex].caption_text;
-                        nextCaptionIndex = (capIndex + 1) % captions.length;
-                    }
-
-                    const eventToPost = { 
-                        ...event, 
-                        design_image_path: selectedImagePath,
-                        caption: selectedCaption
-                    };
-                    
-                    await sendPost(eventToPost);
-
-                    // Update indexes
-                    await db.run(
-                        'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
-                        [nextImageIndex, nextCaptionIndex, event.id]
-                    );
+                let selectedImagePath = event.design_image_path;
+                let nextImageIndex = event.current_image_index;
+                if (images.length > 0) {
+                    const imgIndex = event.current_image_index % images.length;
+                    selectedImagePath = images[imgIndex].image_path;
+                    nextImageIndex = (imgIndex + 1) % images.length;
                 }
+
+                let selectedCaption = event.caption;
+                let nextCaptionIndex = event.current_caption_index || 0;
+                if (captions.length > 0) {
+                    const capIndex = (event.current_caption_index || 0) % captions.length;
+                    selectedCaption = captions[capIndex].caption_text;
+                    nextCaptionIndex = (capIndex + 1) % captions.length;
+                }
+
+                const eventToPost = { 
+                    ...event, 
+                    design_image_path: selectedImagePath,
+                    caption: selectedCaption
+                };
+                
+                await sendPost(eventToPost);
+
+                // Update indexes
+                await db.run(
+                    'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
+                    [nextImageIndex, nextCaptionIndex, event.id]
+                );
+            }
+        }
+
+        // 3. Process hourly interval events
+        const hourlyEvents = await db.all(
+            `SELECT * FROM events
+             WHERE schedule_type = 'interval'
+             AND status = 'active'
+             AND repeat_interval_hours IS NOT NULL
+             AND repeat_interval_hours > 0
+             ORDER BY created_at ASC`
+        );
+
+        for (const event of hourlyEvents) {
+            // Find the last successful post in activity_logs
+            const lastLog = await db.get(
+                "SELECT created_at FROM activity_logs WHERE event_id = ? AND action = 'post_sent' ORDER BY created_at DESC LIMIT 1",
+                [event.id]
+            );
+
+            let isDue = false;
+            if (lastLog) {
+                const lastSentTime = new Date(lastLog.created_at);
+                const diffMs = now - lastSentTime;
+                const diffHours = diffMs / (1000 * 60 * 60);
+                if (diffHours >= event.repeat_interval_hours) {
+                    isDue = true;
+                }
+            } else {
+                // If it has never been posted, post it immediately!
+                isDue = true;
+            }
+
+            if (isDue) {
+                console.log(`Processing hourly event: ${event.title || event.id} (repeats every ${event.repeat_interval_hours} hours)`);
+                
+                const images = await db.all('SELECT * FROM event_images WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+                const captions = await db.all('SELECT * FROM event_captions WHERE event_id = ? ORDER BY sort_order ASC', [event.id]);
+
+                let selectedImagePath = event.design_image_path;
+                let nextImageIndex = event.current_image_index;
+                if (images.length > 0) {
+                    const imgIndex = event.current_image_index % images.length;
+                    selectedImagePath = images[imgIndex].image_path;
+                    nextImageIndex = (imgIndex + 1) % images.length;
+                }
+
+                let selectedCaption = event.caption;
+                let nextCaptionIndex = event.current_caption_index || 0;
+                if (captions.length > 0) {
+                    const capIndex = (event.current_caption_index || 0) % captions.length;
+                    selectedCaption = captions[capIndex].caption_text;
+                    nextCaptionIndex = (capIndex + 1) % captions.length;
+                }
+
+                const eventToPost = { 
+                    ...event, 
+                    design_image_path: selectedImagePath,
+                    caption: selectedCaption
+                };
+                
+                await sendPost(eventToPost);
+
+                // Update indexes
+                await db.run(
+                    'UPDATE events SET current_image_index = ?, current_caption_index = ? WHERE id = ?',
+                    [nextImageIndex, nextCaptionIndex, event.id]
+                );
             }
         }
     } catch (error) {
