@@ -38,6 +38,7 @@ const WhatsAppStatus = () => {
     const [showGroupPicker, setShowGroupPicker] = useState<'primary' | 'secondary' | null>(null);
     const [availableGroups, setAvailableGroups] = useState<any[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
+    const [groupSearchQuery, setGroupSearchQuery] = useState('');
 
     useEffect(() => {
         fetchProfiles();
@@ -152,6 +153,7 @@ const WhatsAppStatus = () => {
         setEditGroupId(profile.group_id || '');
         setEditGroupId2(profile.group_id_2 || '');
         setShowGroupPicker(null);
+        setGroupSearchQuery('');
     };
 
     const handleUpdateProfile = async () => {
@@ -191,6 +193,7 @@ const WhatsAppStatus = () => {
     };
 
     const handleBrowseGroups = (target: 'primary' | 'secondary') => {
+        setGroupSearchQuery('');
         setShowGroupPicker(target);
         if (availableGroups.length === 0) {
             fetchGroups();
@@ -204,6 +207,7 @@ const WhatsAppStatus = () => {
             setEditGroupId2(groupId);
         }
         setShowGroupPicker(null);
+        setGroupSearchQuery('');
     };
 
     if (loading) return <div className="p-8 text-center text-muted">Loading WhatsApp profiles...</div>;
@@ -459,24 +463,44 @@ const WhatsAppStatus = () => {
                                 <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs font-bold text-primary uppercase">Select {showGroupPicker} group</span>
-                                        <button onClick={() => setShowGroupPicker(null)} className="text-[10px] opacity-50 hover:opacity-100">Cancel</button>
+                                        <button onClick={() => { setShowGroupPicker(null); setGroupSearchQuery(''); }} className="text-[10px] opacity-50 hover:opacity-100">Cancel</button>
                                     </div>
+
+                                    {!loadingGroups && availableGroups.length > 0 && (
+                                        <input 
+                                            type="text" 
+                                            value={groupSearchQuery}
+                                            onChange={(e) => setGroupSearchQuery(e.target.value)}
+                                            placeholder="Search groups by name..."
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-primary transition-all text-slate-100"
+                                        />
+                                    )}
+
                                     {loadingGroups ? (
                                         <div className="py-4 text-center text-xs text-muted animate-pulse">Fetching groups from WhatsApp...</div>
                                     ) : availableGroups.length === 0 ? (
                                         <div className="py-4 text-center text-xs text-muted">No groups found or account offline.</div>
                                     ) : (
                                         <div className="max-h-40 overflow-y-auto space-y-1">
-                                            {availableGroups.map(g => (
-                                                <button 
-                                                    key={g.id}
-                                                    onClick={() => selectGroup(g.id)}
-                                                    className="w-full p-2 text-left text-xs bg-white/5 hover:bg-primary/20 rounded transition-all flex justify-between"
-                                                >
-                                                    <span className="font-bold truncate">{g.name}</span>
-                                                    <span className="opacity-40 ml-2">{g.id.split('@')[0]}</span>
-                                                </button>
-                                            ))}
+                                            {(() => {
+                                                const filtered = availableGroups.filter(g => 
+                                                    g.name.toLowerCase().includes(groupSearchQuery.toLowerCase()) || 
+                                                    g.id.toLowerCase().includes(groupSearchQuery.toLowerCase())
+                                                );
+                                                if (filtered.length === 0) {
+                                                    return <div className="py-2 text-center text-xs text-muted">No groups match your search.</div>;
+                                                }
+                                                return filtered.map(g => (
+                                                    <button 
+                                                        key={g.id}
+                                                        onClick={() => selectGroup(g.id)}
+                                                        className="w-full p-2 text-left text-xs bg-white/5 hover:bg-primary/20 rounded transition-all flex justify-between"
+                                                    >
+                                                        <span className="font-bold truncate text-slate-100">{g.name}</span>
+                                                        <span className="opacity-40 ml-2 text-slate-300">{g.id.split('@')[0]}</span>
+                                                    </button>
+                                                ));
+                                            })()}
                                         </div>
                                     )}
                                 </div>
