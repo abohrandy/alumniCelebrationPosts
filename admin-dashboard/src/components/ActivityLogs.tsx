@@ -29,6 +29,8 @@ const ACTION_COLORS: Record<string, string> = {
     celebrant_deleted: 'text-red-400',
     whatsapp_post_sent: 'text-green-400',
     whatsapp_post_failed: 'text-red-500',
+    publishing_success: 'text-emerald-400',
+    publishing_failed: 'text-red-400'
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -46,6 +48,8 @@ const ACTION_LABELS: Record<string, string> = {
     celebrant_deleted: 'Deleted Celebrant',
     whatsapp_post_sent: 'Post Sent',
     whatsapp_post_failed: 'Post Failed',
+    publishing_success: 'Publishing Success',
+    publishing_failed: 'Publishing Failed'
 };
 
 function ActivityLogs() {
@@ -82,7 +86,7 @@ function ActivityLogs() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="text-base lg:text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                     <History size={20} />
-                    Activity Logs
+                    Activity & Publishing Logs
                 </h3>
                 <div className="flex items-center gap-2">
                     <Filter size={16} style={{ color: 'var(--text-secondary)' }} />

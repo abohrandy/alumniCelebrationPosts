@@ -534,12 +534,39 @@ async function initDb() {
         CREATE TABLE IF NOT EXISTS publishing_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
-            platform TEXT NOT NULL CHECK(platform IN ('whatsapp', 'facebook_feed', 'facebook_reel', 'instagram_feed', 'instagram_reel')),
+            platform TEXT NOT NULL CHECK(platform IN ('whatsapp', 'facebook_feed', 'facebook_reel', 'facebook_story', 'instagram_feed', 'instagram_reel', 'instagram_story')),
             status TEXT NOT NULL CHECK(status IN ('success', 'failed')),
             response TEXT,
             published_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Migration: Update publishing_logs platform check constraint (add facebook_story, instagram_story)
+    try {
+        const tableInfo = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='publishing_logs'");
+        if (tableInfo && !tableInfo.sql.includes('facebook_story')) {
+            console.log('Migrating publishing_logs table to support story platforms...');
+            await db.exec('PRAGMA foreign_keys=OFF');
+            await db.exec('ALTER TABLE publishing_logs RENAME TO publishing_logs_old');
+            await db.exec(`
+                CREATE TABLE publishing_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+                    platform TEXT NOT NULL CHECK(platform IN ('whatsapp', 'facebook_feed', 'facebook_reel', 'facebook_story', 'instagram_feed', 'instagram_reel', 'instagram_story')),
+                    status TEXT NOT NULL CHECK(status IN ('success', 'failed')),
+                    response TEXT,
+                    published_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            await db.exec('INSERT INTO publishing_logs (id, event_id, platform, status, response, published_at) SELECT id, event_id, platform, status, response, published_at FROM publishing_logs_old');
+            await db.exec('DROP TABLE publishing_logs_old');
+            await db.exec('PRAGMA foreign_keys=ON');
+            console.log('publishing_logs table migrated successfully.');
+        }
+    } catch (e) {
+        console.error('Failed to migrate publishing_logs platform check:', e.message);
+        await db.exec('PRAGMA foreign_keys=ON');
+    }
 
     // Seed admin user from env var if set
     const adminEmail = process.env.ADMIN_EMAIL;

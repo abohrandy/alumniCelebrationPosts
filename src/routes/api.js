@@ -390,19 +390,61 @@ router.post('/whatsapp/send-test', requireAdmin, async (req, res) => {
     }
 });
 
-// ── Activity Logs Route (admin only) ──
+// ── Unified Activity & Publishing Logs Route (admin only) ──
 router.get('/logs', requireAdmin, async (req, res) => {
     try {
         const { initDb } = require('../models/database');
         const db = await initDb();
-        const logs = await db.all(`
+        
+        // 1. Get system activity logs
+        const systemLogs = await db.all(`
             SELECT al.*, u.name as user_name, u.avatar_url as user_avatar
             FROM activity_logs al
             LEFT JOIN users u ON al.user_id = u.id
             ORDER BY al.created_at DESC 
-            LIMIT 200
+            LIMIT 250
         `);
-        res.json(logs);
+
+        // 2. Get publishing logs
+        const pubLogs = await db.all(`
+            SELECT pl.id, pl.event_id, pl.platform, pl.status, pl.response, pl.published_at, 
+                   e.title, e.full_name
+            FROM publishing_logs pl
+            LEFT JOIN events e ON pl.event_id = e.id
+            ORDER BY pl.published_at DESC
+            LIMIT 250
+        `);
+
+        // 3. Map publishing logs to the activity log format
+        const mappedPubLogs = pubLogs.map(pl => {
+            const eventName = pl.full_name || pl.title || `Event #${pl.event_id}`;
+            const platformName = pl.platform
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            
+            const action = pl.status === 'success' ? 'publishing_success' : 'publishing_failed';
+            return {
+                id: `pub_${pl.id}`,
+                user_id: null,
+                action: action,
+                event_id: pl.event_id,
+                description: pl.status === 'success' 
+                    ? `Posted successfully to ${platformName} for: "${eventName}"`
+                    : `Failed to post to ${platformName} for: "${eventName}"`,
+                details: pl.response,
+                created_at: pl.published_at,
+                user_name: 'System Scheduler',
+                user_avatar: null
+            };
+        });
+
+        // 4. Combine and sort
+        const combinedLogs = [...systemLogs, ...mappedPubLogs];
+        combinedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // 5. Paginate/Limit
+        res.json(combinedLogs.slice(0, 250));
     } catch (error) {
         console.error('Error fetching logs:', error);
         res.status(500).json({ error: error.message });
