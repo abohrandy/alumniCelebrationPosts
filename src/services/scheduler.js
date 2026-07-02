@@ -1090,7 +1090,9 @@ async function sendPost(event, _isRetry = false) {
         }
         
         // 2. Delete single-post non-repeating announcements immediately after post
-        if (event.event_type === 'announcement' && (!event.repeat_interval_days || event.repeat_interval_days == 0)) {
+        if (event.event_type === 'announcement' && 
+            (!event.repeat_interval_days || event.repeat_interval_days == 0) && 
+            (!event.repeat_interval_hours || event.repeat_interval_hours == 0)) {
             if (event.design_image_path) {
                 try {
                     const fullPath = process.env.DATA_DIR 
