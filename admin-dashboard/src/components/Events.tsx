@@ -49,8 +49,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
     wedding_anniversary: 'Wedding Anniversary',
     one_day_event: 'Single Day Event',
     monday_market: 'Monday Market',
-    recurrent_announcement: 'Recurrent Announcement',
-    announcement: 'Announcement'
+    recurrent_announcement: 'Announcement'
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -58,8 +57,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
     wedding_anniversary: 'bg-purple-500/20 text-purple-500',
     one_day_event: 'bg-amber-500/20 text-amber-500',
     monday_market: 'bg-orange-500/20 text-orange-500',
-    recurrent_announcement: 'bg-emerald-500/20 text-emerald-500',
-    announcement: 'bg-blue-500/20 text-blue-500'
+    recurrent_announcement: 'bg-emerald-500/20 text-emerald-500'
 };
 
 interface EventsProps {
@@ -427,8 +425,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                     <option value="birthday">Birthdays</option>
                     <option value="wedding_anniversary">Weddings</option>
                     <option value="one_day_event">One Day Events</option>
-                    <option value="recurrent_announcement">Recurrent Announcements</option>
-                    <option value="announcement">Announcements</option>
+                    <option value="recurrent_announcement">Announcements</option>
                     <option value="recurring">Recurring (All)</option>
                 </select>
 
@@ -497,8 +494,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                     <option value="wedding_anniversary">💍 Wedding Anniversary</option>
                                     <option value="one_day_event">✨ One Day Event</option>
                                     <option value="monday_market">🏪 Monday Market</option>
-                                    <option value="recurrent_announcement">🔄 Recurrent Announcement</option>
-                                    <option value="announcement">📢 Announcement</option>
+                                    <option value="recurrent_announcement">📢 Announcement</option>
                                 </select>
                             </div>
 
@@ -537,7 +533,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                             className="w-full rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} required />
                                     </div>
 
-                                    {(eventType === 'announcement' || eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                                    {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Schedule Type</label>
@@ -643,7 +639,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 </>
                             )}
 
-                            {(eventType === 'announcement' || eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
+                            {(eventType === 'recurrent_announcement' || eventType === 'monday_market') && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Expiry Date (Stop announcing after this date)</label>
                                     <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)}
@@ -849,8 +845,7 @@ function Events({ initialShowForm = false, initialFilter = 'all' }: EventsProps)
                                 <div className={`p-2 rounded-lg ${EVENT_TYPE_COLORS[viewingEvent.event_type]}`}>
                                     {viewingEvent.event_type === 'birthday' && <Calendar size={20} />}
                                     {viewingEvent.event_type === 'wedding_anniversary' && <Plus size={20} />}
-                                    {(viewingEvent.event_type === 'recurrent_announcement') && <Repeat size={20} />}
-                                    {viewingEvent.event_type === 'announcement' && <Send size={20} />}
+                                    {viewingEvent.event_type === 'recurrent_announcement' && <Repeat size={20} />}
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg text-white leading-tight">{getDisplayName(viewingEvent)}</h3>

@@ -196,6 +196,18 @@ async function initDb() {
             
             // Rename type
             await db.run("UPDATE events SET event_type = 'recurrent_announcement' WHERE event_type = 'monday_market'");
+            
+            // Move existing announcement captions to event_captions table
+            const existingAnnouncementItems = await db.all("SELECT id, caption FROM events WHERE event_type = 'announcement' AND caption IS NOT NULL AND caption != ''");
+            for (const item of existingAnnouncementItems) {
+                const count = await db.get("SELECT COUNT(*) as count FROM event_captions WHERE event_id = ?", [item.id]);
+                if (count.count === 0) {
+                    await db.run("INSERT INTO event_captions (event_id, caption_text) VALUES (?, ?)", [item.id, item.caption]);
+                }
+            }
+            
+            // Rename announcement types
+            await db.run("UPDATE events SET event_type = 'recurrent_announcement' WHERE event_type = 'announcement'");
         } catch (e) {
             console.error('Migration to recurrent_announcement partially failed (likely constraint):', e.message);
         }

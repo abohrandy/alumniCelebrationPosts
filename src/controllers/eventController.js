@@ -45,8 +45,8 @@ const eventController = {
             const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
             // Determine upload subdirectory by event type
-            const subDir = (event_type === 'monday_market' || event_type === 'recurrent_announcement') ? 'market'
-                : event_type === 'announcement' ? 'announcements'
+            const subDir = event_type === 'recurrent_announcement' ? 'announcements'
+                : event_type === 'monday_market' ? 'market'
                     : event_type === 'wedding_anniversary' ? 'anniversaries'
                         : event_type === 'one_day_event' ? 'one_day'
                             : 'birthdays';
@@ -232,8 +232,8 @@ const eventController = {
                 const filesToProcess = Array.isArray(images) ? images : [images];
                 const uploadBase = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : 'uploads';
 
-                const subDir = (event_type === 'monday_market' || event_type === 'recurrent_announcement') ? 'market'
-                    : event_type === 'announcement' ? 'announcements'
+                const subDir = event_type === 'recurrent_announcement' ? 'announcements'
+                    : event_type === 'monday_market' ? 'market'
                         : event_type === 'wedding_anniversary' ? 'anniversaries'
                         : event_type === 'one_day_event' ? 'one_day'
                             : 'birthdays';
